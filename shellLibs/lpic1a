@@ -1,0 +1,94 @@
+#!/bin/bash
+
+source $(which logshell)
+source $(which checksystem)
+#source ./checksystem
+
+checkPcidev() {
+  dev="${1}"
+  lscpi -s "${dev}" -v
+}
+
+# check base on devid
+checkUsbdev() {
+  devid="${1}"
+  lsusb -v -d "${devid}"
+}
+
+kmod_unload() {
+  module="${1}"
+  modprobe -r "${module}"
+}
+
+kmod_blacklist() {
+  module="${1}"
+  [ ! -e /etc/modprobe.d/"${module}".conf ] && {
+    echo "blacklist "${module}"" >/etc/modprobe.d/"${module}".conf
+  } || {
+    [[ $(checkIfFileHaveText "blacklist ${module}" "/etc/modprobe.d/${module}.conf") == "yes" ]] && {
+      echo "Black list file for this module already exist"
+    } || {
+      echo "blacklist "${module}"" >>/etc/modprobe.d/"${module}".conf
+    }
+  }
+}
+
+systemd_listservice() {
+  systemctl list-units --type=service
+}
+
+systemd_listtarget() {
+  systemctl list-units --type=target
+}
+
+# suspend, hibernate
+openConfigPowerFile() {
+  nano /etc/systemd/logind.conf
+}
+
+openSystemdServiceConfigDir() {
+  cd /lib/systemd/system
+}
+
+# need usb live, and alreaady mount /dev/sda1 to /mnt/tmp (for example is boot partitiion of disk need fix)
+grubReInstall() {
+  grub-install --boot-directory=/mnt/tmp /dev/sda
+}
+
+# Booting from the GRUB 2 Shell
+fixmisconfigGrub() {
+  #set root=(hd0,msdos1)
+  #linux /vmlinuz root=/dev/sda1
+  #initrd /initrd.img
+  echo "Booting from the GRUB 2 Shell"
+}
+
+# Booting from the Rescue Shell
+fixmisconfigGrub_RescueShell() {
+  #set prefix=(hd0,msdos1)/boot/grub
+  #insmod normal
+  #insmod linux
+
+  #set root=(hd0,msdos1)
+  #linux /vmlinuz root=/dev/sda1
+  #initrd /initrd.img
+  echo "Booting from the Rescue Shell"
+}
+
+findPartitionUUID() {
+  ls -la /dev/disk/by-uuid/
+}
+
+# run after change config file of liker (ld)
+updateLdConfig() {
+  ldconfig
+}
+
+addTempLdPath() {
+  export LD_LIBRARY_PATH="${1}"
+}
+
+# lib/x86_64-linux-gnu/libc.so.6 or /bin/bash
+findDependencyOfBinaryofObjectFile() {
+  objdump -p "${1}" | grep NEEDED
+}

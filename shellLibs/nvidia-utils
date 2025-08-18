@@ -1,0 +1,129 @@
+#!/bin/bash
+
+source $(which checksystem)
+source $(which logshell)
+source $(which admin)
+
+function nvidia-disable-nouveau() {
+  [[ $(checkOsID) == *debian* || $(checkOsID) == *ubuntu* ]] && {
+    cat <<EOF | sudo tee /etc/modprobe.d/blacklist-nouveau.conf
+blacklist nouveau
+options nouveau modeset=0
+EOF
+    sudo update-initramfs -u
+  }
+
+  [[ $(checkOsID) == *centos* || $(checkOsID) == *redhat* ]] && {
+    echo "blacklist nouveau" >/etc/modprobe.d/denylist.conf
+
+    echo "options nouveau modeset=0" >>/etc/modprobe.d/denylist.conf
+    sudo dracut --force
+    grub2-mkconfig -o /boot/efi/EFI/redhat/grub.cfg
+  }
+  # log-step "Already disable nouveau kernel driver, now you need to unload it using "rmmod nouveau" or reboot your system."
+  log-step "Unloading nouevau..."
+  rmmod nouveau
+  admin-updateRamdisk
+}
+
+function nvidia-unload-kmodule() {
+  # unload kernel module
+  rmmod nvidia_drm
+  rmmod nvidia_modeset
+  rmmod nvidia_uvm
+  rmmod nvidia
+
+  # reload kernel module
+  # nvidia_modeset, nvidia_uvm will auto restart
+  # after nvidia_drm started
+  #### modprobe nvidia_drm
+}
+
+function nvidia-install-nvidiadockertoolkit() {
+  [[ $(checkOsID) == *debian* || $(checkOsID) == *ubuntu* ]] && {
+    curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg &&
+      curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list |
+      sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' |
+        sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+
+    sed -i -e '/experimental/ s/^#//g' /etc/apt/sources.list.d/nvidia-container-toolkit.list
+    sudo apt-get update
+    sudo apt-get install -y nvidia-container-toolkit
+  }
+
+  [[ $(checkOsID) == *centos* || $(checkOsID) == *redhat* ]] && {
+    curl -s -L https://nvidia.github.io/libnvidia-container/stable/rpm/nvidia-container-toolkit.repo |
+      sudo tee /etc/yum.repos.d/nvidia-container-toolkit.repo
+    sudo yum install -y nvidia-container-toolkit
+  }
+  sudo nvidia-ctk runtime configure --runtime=docker
+  sudo systemctl restart docker
+}
+
+function nvidia-list-devices() {
+  nvidia-smi -L
+}
+
+function nvidia-install-driver() {
+  set -e
+  source $(which logshell)
+
+  [[ ${1} = "-h" || -z ${1} ]] && {
+    echo "Usage: $FUNCNAME <specific package file / auto>
+  Note: This script need sudo permission to execute."
+    return 0
+  }
+
+  package=$1
+  architec=$(uname -m)
+  #64 bits
+  [[ ${architec} == "x86_64" ]] && {
+    apt install linux-headers-amd64
+  }
+  #32 bits
+  [[ ${architec} == "i686" ]] && {
+    apt install linux-headers-686
+  }
+
+  #list="deb http://deb.debian.org/debian/ bullseye main contrib non-free"
+  #echo "$list" >>/etc/apt/sources.list
+  sudo apt install build-essential
+
+  nvidiaCheck="/usr/bin/nvidia-smi"
+  [[ -e ${nvidiaCheck} ]] && {
+    log-step "Uninstall existing version of nvidia-driver and libraries..."
+    [[ -e "/usr/bin/nvidia-installer" ]] && {
+      nvidia-installer --uninstall
+      log-info "Done uninstall static package."
+    } || {
+      apt purge nvidia* libnvidia*
+    }
+  }
+
+  [[ ${package} == "auto" ]] && {
+    log-step "Install auto version form online repository..."
+    apt update
+    apt install nvidia-driver firmware-misc-nonfree
+    exit 0
+  }
+
+  [[ ${package} ]] && {
+    chmod +x ./${package}
+    log-step "Install package ${package}..."
+    ./${package}
+  }
+
+  # Mismatching nvidia kernel module loaded                                                                                                                                                                                                                                 │
+  # │                                                                                                                                                                                                                                                                         │
+  # │ The NVIDIA driver that is being installed (version 418.226.00) does not match the nvidia kernel module currently loaded (version 418.152.00).                                                                                                                           │
+  # │                                                                                                                                                                                                                                                                         │
+  # │ The X server, OpenGL, and GPGPU applications may not work properly.                                                                                                                                                                                                     │
+  # │                                                                                                                                                                                                                                                                         │
+  # │ The easiest way to fix this is to reboot the machine once the installation has finished. You can also stop the X server (usually by stopping
+  # the login manager, e.g. gdm3, sddm, or xdm), manually unload the module ("modprobe -r nvidia"), and restart the X server.
+}
+
+
+function nvidia-check-version() {
+  cat /proc/driver/nvidia/version
+}

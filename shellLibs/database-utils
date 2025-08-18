@@ -1,0 +1,346 @@
+#!/bin/bash
+
+function mysql-setEnv() {
+  [[ $1 == "-h" ]] && {
+    echo "Usage (run as root or sudo -s): $FUNCNAME <user> [host] [password]"
+    return 0
+  }
+
+  MANNK_MYSQL_USER=$1
+  MANNK_MYSQL_HOST=$2
+  MANNK_MYSQL_PASS=$3
+
+  export MANNK_MYSQL_USER="${MANNK_MYSQL_USER:-"missing MANNK_MYSQL_USER"}"
+  export MANNK_MYSQL_HOST="${MANNK_MYSQL_HOST:-localhost}"
+  export MANNK_MYSQL_PASS="${MANNK_MYSQL_PASS:-""}"
+}
+
+function mysql-connect() {
+  [[ $1 == "-h" ]] && {
+    echo "Usage (run as root or sudo -s): $FUNCNAME <user> [host] [password]"
+    return 0
+  }
+  MANNK_MYSQL_USER="${MANNK_MYSQL_USER:-"missing MANNK_MYSQL_USER"}"
+  MANNK_MYSQL_HOST="${MANNK_MYSQL_HOST:-localhost}"
+  MANNK_MYSQL_PASS="${MANNK_MYSQL_PASS:-""}"
+
+  command=$(
+    cat <<EOF
+    mysql -u "${MANNK_MYSQL_USER}" -h "${MANNK_MYSQL_HOST}" -p"${MANNK_MYSQL_PASS}"
+EOF
+  )
+  echo "$command"
+  eval "$command"
+
+}
+
+function mysql-createUser() {
+  [[ $1 == "-h" || -z $1 ]] && {
+    echo "Usage (run as root or sudo -s): $FUNCNAME <newuser> <newpass> <accesss_from> <use_native_pass>"
+    return 0
+  }
+  MANNK_MYSQL_USER="${MANNK_MYSQL_USER:-"missing MANNK_MYSQL_USER"}"
+  MANNK_MYSQL_HOST="${MANNK_MYSQL_HOST:-localhost}"
+  MANNK_MYSQL_PASS="${MANNK_MYSQL_PASS:-""}"
+
+  access_from=$3
+  newpass=$2
+  user=$1
+  use_native_pass=$4
+  access_from="${access_from:-"%"}"
+  newpass="${newpass:-"password"}"
+
+  [[ $use_native_pass = "no" ]] && {
+    use_native_pass="WITH caching_sha2_password"
+  }
+  [[ $use_native_pass = "yes" ]] && {
+    use_native_pass="WITH use_native_pass"
+  }
+  # default
+  use_native_pass="${use_native_pass:-"WITH caching_sha2_password"}"
+
+  command=$(
+    cat <<EOF
+mysql -u "${MANNK_MYSQL_USER}" -h "${MANNK_MYSQL_HOST}" -p"${MANNK_MYSQL_PASS}" --execute="CREATE USER '${user}'@'${access_from}' IDENTIFIED ${use_native_pass} BY '${newpass}';"   
+EOF
+  )
+  echo "$command"
+  eval "$command"
+  [[ $? == 0 ]] && {
+    echo "Successful created ${user} with password ${newpass} access from ${access_from}"
+  }
+}
+
+function mysql-grantAllPrivilegesOnDB() {
+  [[ $1 == "-h" || -z $1 || -z $2 || -z $3 ]] && {
+    echo "Usage (run as root or sudo -s): $FUNCNAME <user> <host> <db>"
+    return 0
+  }
+  MANNK_MYSQL_USER="${MANNK_MYSQL_USER:-"missing MANNK_MYSQL_USER"}"
+  MANNK_MYSQL_HOST="${MANNK_MYSQL_HOST:-localhost}"
+  MANNK_MYSQL_PASS="${MANNK_MYSQL_PASS:-""}"
+
+  db=$3
+  host=$2
+  user=$1
+
+  command=$(
+    cat <<EOF
+    mysql -u "${MANNK_MYSQL_USER}" -h "${MANNK_MYSQL_HOST}" -p"${MANNK_MYSQL_PASS}" --execute="GRANT ALL PRIVILEGES ON ${db}.* TO '${user}'@'${host}'; FLUSH PRIVILEGES;"   
+EOF
+  )
+  echo "${command}"
+  eval "${command}"
+  [[ $? == 0 ]] && {
+    echo "Successful"
+  }
+}
+
+function mysql-grantUserPermissonOnDB() {
+  [[ $1 == "-h" || -z $1 || -z $2 || -z $3 ]] && {
+    echo "Usage (run as root or sudo -s): $FUNCNAME <user> <host> <db>"
+    return 0
+  }
+  MANNK_MYSQL_USER="${MANNK_MYSQL_USER:-"missing MANNK_MYSQL_USER"}"
+  MANNK_MYSQL_HOST="${MANNK_MYSQL_HOST:-localhost}"
+  MANNK_MYSQL_PASS="${MANNK_MYSQL_PASS:-""}"
+
+  db=$3
+  host=$2
+  user=$1
+
+  command=$(
+    cat <<EOF
+    mysql -u "${MANNK_MYSQL_USER}" -h "${MANNK_MYSQL_HOST}" -p"${MANNK_MYSQL_PASS}" --execute="GRANT CREATE, ALTER, DROP, INSERT, UPDATE, DELETE, SELECT, REFERENCES, RELOAD ON ${db}.* TO '${user}'@'${host}'; FLUSH PRIVILEGES;"   
+EOF
+  )
+  echo "${command}"
+  eval "${command}"
+  [[ $? == 0 ]] && {
+    echo "Successful"
+  }
+}
+
+function mysql-grantReadonlyOnDB() {
+  [[ $1 == "-h" || -z $1 || -z $2 || -z $3 ]] && {
+    echo "Usage (run as root or sudo -s): $FUNCNAME <user> <host> <db>"
+    return 0
+  }
+  MANNK_MYSQL_USER="${MANNK_MYSQL_USER:-"missing MANNK_MYSQL_USER"}"
+  MANNK_MYSQL_HOST="${MANNK_MYSQL_HOST:-localhost}"
+  MANNK_MYSQL_PASS="${MANNK_MYSQL_PASS:-""}"
+
+  db=$3
+  host=$2
+  user=$1
+
+  command=$(
+    cat <<EOF
+    mysql -u "${MANNK_MYSQL_USER}" -h "${MANNK_MYSQL_HOST}" -p"${MANNK_MYSQL_PASS}" --execute="GRANT SELECT, SHOW VIEW ON ${db}.* TO '${user}'@'${host}'; FLUSH PRIVILEGES;"   
+EOF
+  )
+  echo "${command}"
+  eval "${command}"
+  [[ $? == 0 ]] && {
+    echo "Successful"
+  }
+}
+
+function mysql-grantRootPermisson() {
+  [[ $1 == "-h" || -z $1 || -z $2 || -z $3 ]] && {
+    echo "Usage (run as root or sudo -s): $FUNCNAME <user> <host> <db>"
+    return 0
+  }
+  MANNK_MYSQL_USER="${MANNK_MYSQL_USER:-"missing MANNK_MYSQL_USER"}"
+  MANNK_MYSQL_HOST="${MANNK_MYSQL_HOST:-localhost}"
+  MANNK_MYSQL_PASS="${MANNK_MYSQL_PASS:-""}"
+
+  db=$3
+  host=$2
+  user=$1
+
+  command=$(
+    cat <<EOF
+    mysql -u "${MANNK_MYSQL_USER}" -h "${MANNK_MYSQL_HOST}" -p"${MANNK_MYSQL_PASS}" --execute="GRANT ALL PRIVILEGES ON *.* TO '${user}'@'${host}' WITH GRANT OPTION; FLUSH PRIVILEGES;"
+EOF
+  )
+  echo "${command}"
+  eval "${command}"
+  [[ $? == 0 ]] && {
+    echo "Successful"
+  }
+}
+
+function mysql-showUserPermisson() {
+  [[ $1 == "-h" || -z $1 || -z $2 ]] && {
+    echo "Usage (run as root or sudo -s): $FUNCNAME <user> <host>"
+    return 0
+  }
+  MANNK_MYSQL_USER="${MANNK_MYSQL_USER:-"missing MANNK_MYSQL_USER"}"
+  MANNK_MYSQL_HOST="${MANNK_MYSQL_HOST:-localhost}"
+  MANNK_MYSQL_PASS="${MANNK_MYSQL_PASS:-""}"
+
+  user=$1
+  host=$2
+
+  command=$(
+    cat <<EOF
+mysql -u "${MANNK_MYSQL_USER}" -h "${MANNK_MYSQL_HOST}" -p"${MANNK_MYSQL_PASS}" --execute="SHOW GRANTS FOR '${user}'@'${host}';"   
+EOF
+  )
+  echo "$command"
+  eval "$command"
+}
+
+function mysql-dropUser() {
+  [[ $1 == "-h" || -z $1 || -z $2 ]] && {
+    echo "Usage (run as root or sudo -s): $FUNCNAME <user> <host>"
+    return 0
+  }
+  MANNK_MYSQL_USER="${MANNK_MYSQL_USER:-"missing MANNK_MYSQL_USER"}"
+  MANNK_MYSQL_HOST="${MANNK_MYSQL_HOST:-localhost}"
+  MANNK_MYSQL_PASS="${MANNK_MYSQL_PASS:-""}"
+
+  user=$1
+  host=$2
+
+  command=$(
+    cat <<EOF
+mysql -u "${MANNK_MYSQL_USER}" -h "${MANNK_MYSQL_HOST}" -p"${MANNK_MYSQL_PASS}" --execute="DROP USER '${user}'@'${host}';"   
+EOF
+  )
+  echo "$command"
+  eval "$command"
+}
+
+function mysql-createDB() {
+  [[ $1 == "-h" || -z $1 || -z $2 ]] && {
+    echo "Usage (run as root or sudo -s): $FUNCNAME <db_name>"
+    return 0
+  }
+  MANNK_MYSQL_USER="${MANNK_MYSQL_USER:-"missing MANNK_MYSQL_USER"}"
+  MANNK_MYSQL_HOST="${MANNK_MYSQL_HOST:-localhost}"
+  MANNK_MYSQL_PASS="${MANNK_MYSQL_PASS:-""}"
+
+  db_name=$1
+
+  command=$(
+    cat <<EOF
+mysql -u "${MANNK_MYSQL_USER}" -h "${MANNK_MYSQL_HOST}" -p"${MANNK_MYSQL_PASS}" --execute="CREATE DATABASE ${db_name};"   
+EOF
+  )
+  echo "$command"
+  eval "$command"
+}
+
+function mysql-dropDB() {
+  [[ $1 == "-h" || -z $1 || -z $2 ]] && {
+    echo "Usage (run as root or sudo -s): $FUNCNAME <db_name>"
+    return 0
+  }
+  MANNK_MYSQL_USER="${MANNK_MYSQL_USER:-"missing MANNK_MYSQL_USER"}"
+  MANNK_MYSQL_HOST="${MANNK_MYSQL_HOST:-localhost}"
+  MANNK_MYSQL_PASS="${MANNK_MYSQL_PASS:-""}"
+
+  db_name=$1
+
+  command=$(
+    cat <<EOF
+mysql -u "${MANNK_MYSQL_USER}" -h "${MANNK_MYSQL_HOST}" -p"${MANNK_MYSQL_PASS}" --execute="DROP DATABASE ${db_name};"   
+EOF
+  )
+  echo "$command"
+  eval "$command"
+}
+
+function mysql-createTable() {
+  [[ $1 == "-h" || -z $1 || -z $2 ]] && {
+    echo "Usage (run as root or sudo -s): $FUNCNAME <table>
+        Example: $FUNCNAME 'Persons (PersonID int, LastName varchar(255), FirstName varchar(255), Address varchar(255), City varchar(255));'"
+    return 0
+  }
+  MANNK_MYSQL_USER="${MANNK_MYSQL_USER:-"missing MANNK_MYSQL_USER"}"
+  MANNK_MYSQL_HOST="${MANNK_MYSQL_HOST:-localhost}"
+  MANNK_MYSQL_PASS="${MANNK_MYSQL_PASS:-""}"
+
+  table=$1
+
+  command=$(
+    cat <<EOF
+mysql -u "${MANNK_MYSQL_USER}" -h "${MANNK_MYSQL_HOST}" -p"${MANNK_MYSQL_PASS}" --execute="CREATE TABLE ${table};"   
+EOF
+  )
+  echo "$command"
+  eval "$command"
+}
+
+function mysql-dropTable() {
+  [[ $1 == "-h" || -z $1 || -z $2 ]] && {
+    echo "Usage (run as root or sudo -s): $FUNCNAME <table_name>"
+    return 0
+  }
+  MANNK_MYSQL_USER="${MANNK_MYSQL_USER:-"missing MANNK_MYSQL_USER"}"
+  MANNK_MYSQL_HOST="${MANNK_MYSQL_HOST:-localhost}"
+  MANNK_MYSQL_PASS="${MANNK_MYSQL_PASS:-""}"
+
+  table_name=$1
+
+  command=$(
+    cat <<EOF
+mysql -u "${MANNK_MYSQL_USER}" -h "${MANNK_MYSQL_HOST}" -p"${MANNK_MYSQL_PASS}" --execute="DROP TABLE ${table_name};"   
+EOF
+  )
+  echo "$command"
+  eval "$command"
+}
+
+function mysql-truncateTable() {
+  [[ $1 == "-h" || -z $1 || -z $2 ]] && {
+    echo "Usage (run as root or sudo -s): $FUNCNAME <table_name>
+        Delete data inside a table, keep table."
+    return 0
+  }
+  MANNK_MYSQL_USER="${MANNK_MYSQL_USER:-"missing MANNK_MYSQL_USER"}"
+  MANNK_MYSQL_HOST="${MANNK_MYSQL_HOST:-localhost}"
+  MANNK_MYSQL_PASS="${MANNK_MYSQL_PASS:-""}"
+
+  table_name=$1
+
+  command=$(
+    cat <<EOF
+mysql -u "${MANNK_MYSQL_USER}" -h "${MANNK_MYSQL_HOST}" -p"${MANNK_MYSQL_PASS}" --execute="TRUNCATE TABLE ${table_name};"   
+EOF
+  )
+  echo "$command"
+  eval "$command"
+}
+
+## Command Options for Connecting to the Server
+# https://dev.mysql.com/doc/refman/8.4/en/connection-options.html
+
+## Config SSL
+# https://dev.mysql.com/doc/refman/8.4/en/using-encrypted-connections.html#using-encrypted-connections-server-side-startup-configuration
+
+## Admin command
+# https://dev.mysql.com/doc/refman/8.4/en/mysqladmin.html
+
+#!/bin/bash
+
+function psql-connect() {
+  [[ $1 == "-h" || -z $1 ]] && {
+    echo "Usage (run as root or sudo -s): $FUNCNAME <host> <port> <user> <password>"
+    return 0
+  }
+  user=$1
+  host=$2
+  port=$3
+  password=$4
+  command="psql -U ${user} -h ${host} -p ${port} -W ${password}"
+  echo "$command"
+  eval "$command"
+}
+
+# CREATE USER replication REPLICATION LOGIN CONNECTION LIMIT 1 ENCRYPTED PASSWORD 'replicationpa55word';
+# \du
+# ALTER ROLE replication CONNECTION LIMIT -1;
+#

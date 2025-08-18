@@ -1,0 +1,505 @@
+#!/bin/bash
+
+source $(which checksystem)
+source $(which logshell)
+
+# connect dhcp, with wpa_supplicant
+nwWifiConnect2AP_networkingService() {
+  [[ $1 == "-h" || -z $1 || -z $2 || -z $3 ]] && {
+    echo "Usage: sudo $FUNCNAME <ssid> <pass> <device>"
+    return 0
+  }
+  ssid="${1}"
+  pass="${2}"
+  device="${3}"
+
+  [[ $(checkIfFileHaveText "${device}" /etc/network/interfaces) == "no" ]] && {
+    log-info "write config to /etc/network/interfaces"
+    echo -e "
+allow-hotplug "${device}"
+iface "${device}" inet dhcp
+wpa-conf /etc/wpa_supplicant/"${device}".conf
+" >>/etc/network/interfaces
+  } || log-error "Error when write config to /etc/network/interfaces"
+
+  [[ ! -f /etc/wpa_supplicant/"${device}".conf ]] && {
+    log-info "write config to /etc/wpa_supplicant/"${device}".conf"
+    echo -e "
+update_config=1
+country=VN
+" >/etc/wpa_supplicant/"${device}".conf
+
+    wpa_passphrase "${ssid}" "${pass}" >>/etc/wpa_supplicant/"${device}".conf
+  }
+
+  log-info "Restart networking service..."
+  systemctl restart networking
+  # bgscan=\"simple:60:-70:7200\"
+  # ctrl_interface=DIR=/run/wpa_supplicant GROUP=netdev
+}
+
+nwWifiConnect2AP_withoutwpaconf() {
+  [[ $1 == "-h" || -z $1 || -z $2 || -z $3 ]] && {
+    echo "Usage: sudo $FUNCNAME <ssid> <pass> <device>
+Only write config to /etc/network/interfaces"
+    return 0
+  }
+  ssid="${1}"
+  pass="${2}"
+  device="${3}"
+
+  [[ $(checkIfFileHaveText "${device}" /etc/network/interfaces) == "no" ]] && {
+    log-info "write config to /etc/network/interfaces"
+
+    echo -e "
+allow-hotplug "${device}"
+iface "${device}" inet dhcp
+        wpa-ssid \"${ssid}\"
+        wpa-psk \"${pass}\"
+" >>/etc/network/interfaces
+  } || log-error "Error when write config to /etc/network/interfaces"
+
+  log-info "Restart networking service..."
+  systemctl restart networking
+}
+
+# start isc-dhcp-server on specific interface
+# need set staticip for this interface before
+nwEnableDhcp_v4Service() {
+  ### /etc/default/isc-dhcp-server
+
+  # Defaults for isc-dhcp-server (sourced by /etc/init.d/isc-dhcp-server)
+
+  # Path to dhcpd's config file (default: /etc/dhcp/dhcpd.conf).
+  #DHCPDv4_CONF=/etc/dhcp/dhcpd.conf
+  #DHCPDv6_CONF=/etc/dhcp/dhcpd6.conf
+
+  # Path to dhcpd's PID file (default: /var/run/dhcpd.pid).
+  #DHCPDv4_PID=/var/run/dhcpd.pid
+  #DHCPDv6_PID=/var/run/dhcpd6.pid
+
+  # Additional options to start dhcpd with.
+  #       Don't use options -cf or -pf here; use DHCPD_CONF/ DHCPD_PID instead
+  #OPTIONS=""
+
+  # On what interfaces should the DHCP server (dhcpd) serve DHCP requests?
+  #       Separate multiple interfaces with spaces, e.g. "eth0 eth1".
+  [[ $1 == "-h" || -z $1 ]] && {
+    echo "Usage: sudo $FUNCNAME <net_interface>
+Note: This function setup dhcp server on specific network interface"
+    return 0
+  }
+  [[ $(checkIfCommandExist "dhcpd") == "no" ]] && {
+    apt install isc-dhcp-server
+  }
+
+  log-info "Write config to /etc/dhcp/dhcpd.conf && /etc/default/isc-dhcp-server"
+  interface="${1}"
+  echo -e "option domain-name-servers 1.1.1.1;
+default-lease-time 600;
+ddns-update-style none; ddns-updates off;
+subnet 192.168.0.0 netmask 255.255.255.0 {
+       max-lease-time 7200;
+       range 192.168.0.200 192.168.0.229;
+       option subnet-mask 255.255.255.0;
+       option broadcast-address 192.168.0.255;
+       option routers 192.168.0.1;
+       }
+" >/etc/dhcp/dhcpd.conf
+
+  echo -e "INTERFACESv4=\"${interface}\"
+INTERFACESv6=\"\"" >/etc/default/isc-dhcp-server
+
+  systemctl restart isc-dhcp-server
+  [[ $? != 0 ]] && log-error "Error when starting DHCP server" || log-step "Start DHCP server successfully. Gateway: 192.168.0.1, IP range:192.168.0.200 192.168.0.229;"
+}
+
+######################################
+#    nmcli Command (NetworkManager)  #
+######################################
+
+nmcliWifiCardOff() {
+  nmcli radio wifi off
+}
+
+nmcliWifiCardOn() {
+  nmcli radio wifi on
+}
+
+nmcliWifiScan() {
+  nmcli dev wifi rescan && nmcli dev wifi list
+}
+
+nmcliWifiConnect2AP() {
+  [[ $1 == "-h" || -z $1 || -z $2 || -z $3 ]] && {
+    echo "Usage: sudo $FUNCNAME <ssid> <pass> <interface>
+Only write config to /etc/network/interfaces"
+    return 0
+  }
+  ssid="${1}"
+  pass="${2}"
+  interface="${3}"
+
+  nmcli dev wifi con "${ssid}" password "${pass}" ifname "${interface}"
+  [[ $? == 0 ]] && log-step "Success connect to "${ssid}" using "${interface}""
+}
+
+nmcliDisableCon() {
+  con="${1}"
+  nmcli connection down "${con}"
+}
+
+nmcliEnableCon() {
+  con="${1}"
+  nmcli connection up "${con}"
+}
+
+nmcliShowAllCons() {
+  nmcli con show
+}
+
+nmcliShowConDetail() {
+  con="${1}"
+  nmcli con show "${con}"
+}
+
+nmcliShowDevsInfo() {
+  nmcli
+}
+
+# set static ip for specific interface
+nmcliSetStaticIP() {
+  [[ $1 == "-h" || -z $1 || -z $2 || -z $3 ]] && {
+    echo "Usage: sudo $FUNCNAME <interface> <gateway> <address>
+Set static IP for interface."
+    return 0
+  }
+  interface="${1}"
+  gateway="${2}"
+  address="${3}"
+
+  nmcli con mod "${interface}" ipv4.method auto
+  nmcli con mod "${interface}" ipv4.gateway "${gateway}"
+  nmcli con mod "${interface}" ipv4.address "${address}"
+  nmcli con down "${interface}"
+  nmcli con up "${interface}"
+}
+
+nmcliRestartIface() {
+  [[ $1 == "-h" || -z $1 || -z $2 || -z $3 ]] && {
+    echo "Usage: sudo $FUNCNAME <interface>
+Restart network interface."
+    return 0
+  }
+  interface="${1}"
+
+  sudo ip link set "${interface}" down
+  sudo ip link set "${interface}" up
+}
+
+nwIfaceGetIP() {
+  [[ $1 == "-h" || -z $1 ]] && {
+    echo "Usage: sudo $FUNCNAME <interface>
+Get IP of iface network."
+    return 0
+  }
+  ip addr show $1 | awk '/inet / {print $2}' | cut -d '/' -f 1
+}
+
+# rename
+nwIfaceRename() {
+  [[ $1 == "-h" || -z $1 || -z $2 ]] && {
+    echo "Usage: sudo $FUNCNAME <interface-Name> <new-name>"
+    return 0
+  }
+  interface="${1}"
+  newiname="${2}"
+  sudo ip link set dev "${interface}" down
+  sudo ip link set dev "${interface}" name "${newiname}"
+  sudo ip link set dev "${interface}" up
+}
+
+nwIfaceRestart() {
+  [[ $1 == "-h" || -z $1 ]] && {
+    echo "Usage: sudo $FUNCNAME <net_interface>"
+    return 0
+  }
+  ifdown "${1}"
+  ifup "${1}"
+}
+
+function nwIPv6Disable() {
+  sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1
+  sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1
+  sudo sysctl -w net.ipv6.conf.lo.disable_ipv6=1
+  echo "Temporary disable IPv6"
+}
+
+function nwIfaceSetPromisc() {
+  [[ $1 == "-h" || -z $1 ]] && {
+    echo "Usage (run as root or sudo -s): $FUNCNAME <iface_name>"
+    return 0
+  }
+  ip link set "${1}" promisc on
+}
+
+function nwSetupCentos7() {
+  [[ $1 == "-h" || -z $1 ]] && {
+    echo "Usage (run as root or sudo -s): $FUNCNAME <iface_name> <ip> <netmark> <gateway> <iface_uuid>"
+    return 0
+  }
+  iface_name=$1
+  ip=$2
+  netmark=$3
+  gateway=$4
+  iface_uuid=$5
+
+  ifcfg="
+TYPE="Ethernet"
+BOOTPROTO="static"
+IPADDR=${ip}
+NETMASK=${netmark}
+NM_CONTROLLED=no
+DEFROUTE="yes"
+PEERDNS="yes"
+PEERROUTES="yes"
+IPV4_FAILURE_FATAL="no"
+IPV6INIT="yes"
+IPV6_AUTOCONF="yes"
+IPV6_DEFROUTE="yes"
+IPV6_PEERDNS="yes"
+IPV6_PEERROUTES="yes"
+IPV6_FAILURE_FATAL="no"
+NAME="${iface_name}"
+UUID="${iface_uuid}"
+DEVICE="${iface_name}"
+ONBOOT="yes"
+  "
+  echo "${ifcfg}" >/etc/sysconfig/network-scripts/ifcfg-"${iface_name}"
+
+  etc_sysconfig_network="
+NETWORKING=yes
+HOSTNAME=centos7
+GATEWAY=${gateway}
+"
+  echo "${etc_sysconfig_network}" >/etc/sysconfig/network
+  dns="
+nameserver 8.8.8.8
+nameserver 8.8.4.4
+"
+  echo "${dns}" >/etc/resolv.conf
+}
+
+function nwIfaceFlush() {
+  [[ $1 == "-h" || -z $1 ]] && {
+    echo "Usage (run as root or sudo -s): $FUNCNAME <iface_name>"
+    return 0
+  }
+  ip addr flush dev "${1}"
+}
+
+function nwBridgeDelete() {
+  [[ $1 == "-h" || -z $1 ]] && {
+    echo "Usage (run as root or sudo -s): $FUNCNAME <iface_name>"
+    return 0
+  }
+  ip link set "${1}" down
+  brctl delbr "${1}"
+}
+
+function nwBridgeListAll() {
+  ip link show type bridge
+}
+
+nwBridgeListPortsOfBridge() {
+  [[ $1 == "-h" || -z $1 ]] && {
+    echo "Usage (run as root or sudo -s): $FUNCNAME <bridge_name>"
+    return 0
+  }
+  if command -v bridge &>/dev/null; then
+    #sudo apt install bridge-utils
+    echo "install bridge-utils first."
+    [[ $? ]] || return 1
+  fi
+  ip link show master "${1}"
+}
+
+nw-bandwidth-limit() {
+  [[ ${1} = "-h" || -z ${1} ]] && {
+    echo "Usage:
+$FUNCNAME  <download_limit> <upload_limit>
+  example: bandwidth-limit 256 128 --> kbps
+
+bandwidth-limit clear --> clear
+
+Note: This script need sudo permission to execute."
+    return 0
+  }
+  log-info "Install wondershaper"
+  apt install wondershaper
+  upload_limit=${2}
+  download_limit=${1}
+
+  [[ ${download_limit} == "clear" ]] && {
+    sudo wondershaper clear "${upload_limit}"
+  } || {
+    sudo wondershaper eth1 "${download_limit}" "${upload_limit}"
+  }
+}
+
+function nw-tcpdump-outbound-port() {
+  [[ ${1} = "-h" || -z ${1} ]] && {
+    echo "Usage: $FUNCNAME  <port>
+Note: This script need sudo permission to execute."
+    return 0
+  }
+  tcpdump -i any dst port "${1}"
+}
+
+function nw-tcpdump-inbound-port() {
+  [[ ${1} = "-h" || -z ${1} ]] && {
+    echo "Usage: $FUNCNAME  <port>
+Note: This script need sudo permission to execute."
+    return 0
+  }
+  tcpdump -i any src port "${1}"
+}
+
+function nw-tcpdump-inbound-host() {
+  [[ ${1} = "-h" || -z ${1} ]] && {
+    echo "Usage: $FUNCNAME  <hostip>
+Note: This script need sudo permission to execute."
+    return 0
+  }
+  tcpdump -i any src host "${1}"
+}
+
+function nw-tcpdump-outbound-host() {
+  [[ ${1} = "-h" || -z ${1} ]] && {
+    echo "Usage: $FUNCNAME  <hostip>
+Note: This script need sudo permission to execute."
+    return 0
+  }
+  tcpdump -i any dst host "${1}"
+}
+
+function nw-dhcp-discover() {
+  [[ ${1} = "-h" || -z ${1} ]] && {
+    echo "Usage: $FUNCNAME  <nw-iface>
+Note: This script need sudo permission to execute."
+    return 0
+  }
+  dhclient "${1}" -v
+}
+
+function nw-ubuntu-setStaticIp {
+  [[ ${1} = "-h" || -z ${1} ]] && {
+    echo "Usage: $FUNCNAME  <nw-iface> <ip/24> <gatewayIP>
+Note: This script need sudo permission to execute."
+    return 0
+  }
+
+  nwIface=${1}
+  IP=${2}
+  gatewayIP=${3}
+  sudo ip addr add "${IP}" dev "${nwIface}"
+  sudo ip route add default via "${gatewayIP}"
+}
+
+function nw-check-server-udp-port() {
+  [[ ${1} = "-h" || -z ${1} ]] && {
+    echo "Usage: $FUNCNAME  <hostname/IP> <port>
+Note: This script need sudo permission to execute."
+    return 0
+  }
+  nc -v -u -z -w 3 "${1}" "${2}"
+}
+
+function nw-IptableAddLimitInboudPort {
+  [[ ${1} = "-h" || -z ${1} ]] && {
+    echo "Usage: $FUNCNAME  <port> <allowsubnet/IP> <tcp/udp>
+Note: This script need sudo permission to execute."
+    return 0
+  }
+  if ! command -v netfilter-persistent; then
+    {
+      echo "netfilter-persistent is not exist, install it"
+      sudo apt install netfilter-persistent
+    }
+  fi
+  port=$1
+  subnetIp=$2
+  protocol=$3
+
+  sudo iptables -A INPUT -p "${protocol}" -s "${subnetIp}" --dport "${port}" -j ACCEPT
+  sudo iptables -A INPUT -p "${protocol}" --dport "${port}" -j DROP
+  sudo netfilter-persistent save
+
+  return 0
+}
+
+function nw-IptableDelLimitInboudPort {
+  [[ ${1} = "-h" || -z ${1} ]] && {
+    echo "Usage: $FUNCNAME  <port> <allowsubnet/IP> <tcp/udp>
+Note: This script need sudo permission to execute."
+    return 0
+  }
+  if ! command -v netfilter-persistent; then
+    {
+      echo "netfilter-persistent is not exist, install it"
+      sudo apt install netfilter-persistent
+    }
+  fi
+  port=$1
+  subnetIp=$2
+  protocol=$3
+
+  sudo iptables -D INPUT -p "${protocol}" -s "${subnetIp}" --dport "${port}" -j ACCEPT
+  sudo iptables -D INPUT -p "${protocol}" --dport "${port}" -j DROP
+  sudo netfilter-persistent save
+
+  return 0
+}
+
+nwIaceGetIPmask() {
+  [[ $1 == "-h" || -z $1 ]] && {
+    echo "Usage: sudo $FUNCNAME <interface>
+Get IP mask of network iface."
+    return 0
+  }
+  bitMask=$(ip addr show $1 | awk '/inet / {print $2}' | cut -d '/' -f 2)
+
+  local ones=$((0xFFFFFFFF << (32 - bitMask))) # Create mask with leftmost 'bitmask' number of bits set to 1
+  # Extract each octet of the IP mask
+  local oct1=$(((ones & 0xFF000000) >> 24))
+  local oct2=$(((ones & 0x00FF0000) >> 16))
+  local oct3=$(((ones & 0x0000FF00) >> 8))
+  local oct4=$((ones & 0x000000FF))
+
+  # Output the IP mask in dotted-decimal format
+  echo "$oct1.$oct2.$oct3.$oct4"
+}
+
+nwSetupAccessPoint() {
+  [[ $1 == "-h" || -z $1 || -z $2 ]] && {
+    echo "Usage: sudo $FUNCNAME <ssid> <pass>
+Note: This script need sudo permission to execute."
+    return 0
+  }
+  ssid="${1}"
+  pass="${2}"
+
+  tmpDir=$(mktemp -d)
+  cd "${tmpDir}" || exit 1
+  sudo apt update
+  sudo apt install -y linux-headers-$(uname -r) build-essential bc dkms git libelf-dev rfkill iw hostapd
+  mkdir -p src && cd src || exit 1
+  git clone https://github.com/morrownr/8821au-20210708.git
+  cd src/8821au-20210708
+  sudo apt install gcc-12
+  sudo ./install-driver.sh
+
+  mkdir -p ~/mannkAP && cd ~/mannkAP || exit 1
+  git clone https://github.com/mannk98/create_ap.git && cd create_ap || exit 1
+  ./create_ap -m nat wlx909a4a82dc60 enp2s0 "${ssid}" "${pass}" --country VN --ieee80211ac -c 36 --hidden --freq-band 5 --no-virt
+}

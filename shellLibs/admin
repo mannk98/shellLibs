@@ -1,0 +1,369 @@
+#!/bin/bash
+
+source "$(which logshell)"
+source "$(which checksystem)"
+
+function admin-timezone-set-GMT0() {
+  sudo timedatectl set-timezone UTC
+  #date -s "$(wget -qSO- --max-redirect=0 google.com 2>&1 | grep Date: | cut -d' ' -f5-8)"
+  apt install -y tzdata
+  cp /etc/localtime /etc/localtime_backup && ln -sf "/usr/share/zoneinfo/Etc/GMT+0" /etc/localtime
+}
+
+function admin-timezone-set-GMT7() {
+  sudo timedatectl set-timezone Asia/Ho_Chi_Minh
+  apt install -y tzdata
+  cp /etc/localtime /etc/localtime_backup && ln -sf /usr/share/zoneinfo/Asia/Ho_Chi_Minh /etc/localtime
+}
+
+function admin-user-add-to-sudo() {
+  username=${1}
+  [[ $1 == "-h" || -z $1 ]] && {
+    echo "Usage: sudo ${FUNCNAME[0]} <user_name>
+           Note: This script need sudo permission to execute."
+    return 0
+  }
+
+  apt install sudo &>/dev/null
+  if ! usermod -aG sudo "${username}"; then
+    echo "This script need sudo permission to execute."
+  fi
+  if echo "${username} ALL=(ALL:ALL) NOPASSWD:ALL" >>/etc/sudoers; then
+    echo "Done add user to sudo group and enable sudo without password."
+  fi
+}
+
+function admin-user-add-to-group() {
+  local username=${1}
+  local groupname=${1}
+  [[ $1 == "-h" || -z $1 ]] && {
+    echo "Usage: sudo ${FUNCNAME[0]} user_name groups_name
+           Note: This script need sudo permission to execute."
+    return 0
+  }
+
+  if sudo usermod -aG docker "${username}"; then
+    echo "Done add ${username} to ${groupname}"
+  fi
+}
+
+function admin-user-createnew() {
+  username=${1}
+  adduser "${username}"
+}
+
+function admin-user-createsilent() {
+  local username=${1}
+  local password=${2}
+  local pass
+  pass=$(openssl passwd -1 -salt xyz "${password}")
+  useradd -m -p "${pass}" "${username}"
+}
+
+function admin-user-changepass() {
+  username=${1}
+  passwd "${username}"
+}
+
+function admin-user-remove() {
+  username=${1}
+  deluser "${username}"
+}
+
+function admin-user-remove-with-home() {
+  username=${1}
+  deluser --remove-home "${username}"
+}
+
+function admin-user-list-sudo-user() {
+  getent group sudo
+}
+
+function admin-swap-enable() {
+  local pathSwap="${1}"
+  local sizeSwap=${2}
+
+  [[ $1 == "-h" || -z $1 ]] && {
+    echo "Usage: sudo ${FUNCNAME[0]} <absolute/path/to/swapfile> <size-of-swapfile>
+           size-of-swapfile: (GB) or MB
+           Note: This script need sudo permission to execute."
+    return 0
+  }
+
+  echo "List swapfile on this system:"
+  swapon --show
+  fallocate -l "${sizeSwap}" "${pathSwap}"
+  chmod 600 "${pathSwap}"
+  mkswap "${pathSwap}"
+  swapon "${pathSwap}"
+  echo "${pathSwap} none swap sw 0 0" | sudo tee -a /etc/fstab
+
+  echo "Done create swapfile ${sizeSwap} at ${pathSwap}"
+}
+
+function admin-swap-disable-all() {
+  [[ $1 == "-h" ]] && {
+    echo "Usage: sudo ${FUNCNAME[0]}
+             Note: This script need sudo permission to execute."
+    return 0
+  }
+
+  echo "Current swap:"
+  swapon --show
+  log-step "Disabling all swap file."
+  swapoff -a
+
+  echo "Run: nano /etc/fstab to disable permanent swapon."
+  nano /etc/fstab
+  log-step "Done disable all swapfile. Let's delete swapfiles by yourself"
+  swapon --show
+}
+
+function admin-swap-disable() {
+  [[ $1 == "-h" || -z $1 ]] && {
+    echo "Usage: sudo ${FUNCNAME[0]} <absolute/path/to/swapfile>
+             Note: This script need sudo permission to execute."
+    return 0
+  }
+  echo "Current swap:"
+  swapon --show
+  log-step "Disabling swap file $1"
+  swapoff "$1"
+
+  echo "Run: nano /etc/fstab to disable permanent swapon."
+  nano /etc/fstab
+  log-step "Done disable all swapfile. Let's delete swapfiles by yourself"
+  swapon --show
+}
+
+function admin-coredump-enable() {
+  [[ ${1} = "-h" || -z ${1} ]] && {
+    echo "Usage:
+sudo ${FUNCNAME[0]} (absolute/path/to/place/core-dump-file)
+Default path core-dump files: /tmp/cores (not include / at tail)
+
+Note: This script need sudo permission to execute."
+    return 0
+  }
+  local pathCore="${1}"
+  [[ -z ${pathCore} ]] && {
+    pathCore="/tmp/cores"
+  }
+  mkdir -p "${pathCore}"
+  chmod a+rwx "${pathCore}"
+  #change file log coredump
+  echo "${pathCore}/core.%e.%p.%h.%t" >/proc/sys/kernel/core_pattern
+
+  ulimit -S -c unlimited >/dev/null 2>&1
+
+  echo "Done enable core-dump, core-dump file saved at: ${pathCore}"
+}
+
+admin-change-hostname() {
+  [[ ${1} = "-h" || -z ${1} ]] && {
+    echo "Usage: sudo ${FUNCNAME[0]} <new_hostname>"
+    return 0
+  }
+  hostnamectl set-hostname "${1}"
+  echo "Go to /etc/hosts to chagne hostname and run systemctl restart systemd-hostnamed"
+}
+
+function admin-sshagent-addPrivateKey() {
+  [[ ${1} = "-h" || -z ${1} ]] && {
+    echo "Usage: sudo ${FUNCNAME[0]} <token_path>"
+    return 0
+  }
+
+  local addgitssh
+  addgitssh="
+eval $(ssh-agent -s)
+ssh-add ${1}
+"
+
+  local token_path="$1"
+  [[ $(checkIfFileHaveText "ssh-add ${token_path}" '~/.bashrc') == "yes" ]] && {
+    echo "This token already added."
+    return 0
+  }
+  echo "${addgitssh}" >>~/.bashrc
+}
+
+function admin-sshagent-addHost() {
+  [[ ${1} = "-h" || -z ${1} ]] && {
+    echo "Usage: sudo ${FUNCNAME[0]} <SSH-hostname> <IP/Domain> <User> [PORT]"
+    return 0
+  }
+
+  local port=${4}
+  [[ -z ${port} ]] && port=22
+
+  local sshConfig="
+Host ${1}
+ HostName ${2}
+ User ${3}
+ Port ${4}
+"
+  echo "${sshConfig}" >>~/.ssh/config
+  ssh-copy-id "${1}" && {
+    echo "Success add $1"
+  }
+}
+
+function admin-getUUID() {
+  if ! sudo cat /sys/class/dmi/id/product_uuid; then
+    return 1
+  fi
+}
+
+function admin-changeUserSession() {
+  [[ ${1} = "-h" || -z ${1} ]] && {
+    echo "Usage: sudo ${FUNCNAME[0]} <user>"
+  }
+  sudo -u "${1}" bash
+  # su - "${1}"
+}
+
+function admin-disableSElinuxCentos() {
+  replaceStringInFile "SELINUX=enforcing" "SELINUX=permissive" /etc/selinux/config
+  setenforce permissive
+}
+
+function admin-updateInitRamdisk() {
+  [[ $(checkOsID) == *debian* || $(checkOsID) == *ubuntu* ]] && {
+    update-initramfs -u -v -k "$(uname -r)"
+  }
+  [[ $(checkOsID) == *centos* || $(checkOsID) == *redhat* ]] && {
+    dracut --force
+  }
+}
+
+function admin-kernelAvaiableList() {
+  [[ $(checkOsID) == *debian* || $(checkOsID) == *ubuntu* ]] && {
+    apt list | grep linux-image
+  }
+  [[ $(checkOsID) == *centos* || $(checkOsID) == *redhat* ]] && {
+    yum list | grep linux-image
+  }
+}
+
+function admin-cgroupChangeToV2() {
+  if  [ "$(stat -c %T -f /sys/fs/cgroup)" == "tmpfs" ]; then
+    sudo grubby --update-kernel=ALL --args="systemd.unified_cgroup_hierarchy=1"
+    echo "Info: Need reboot to apply new setting."
+  else
+    echo "Info: System already use Cgroups v2"
+  fi
+}
+
+function admin-cgroupAvaiableOnSystem() {
+  grep cgroup /proc/filesystems
+}
+
+function admin-kernelInstallSpecificVersion() {
+  [[ ${1} = "-h" || -z ${1} ]] && {
+    echo "Usage: sudo ${FUNCNAME[0]} <kerner-version>"
+  }
+  while true; do
+    read -p "Do you wish to remove current kernel $(uname -r) ? " yn
+    case $yn in
+    [Yy]*)
+      [[ $(checkOsID) == *debian* || $(checkOsID) == *ubuntu* ]] && {
+        apt remove linux-iamge-"$(uname -r)"
+      }
+      [[ $(checkOsID) == *centos* || $(checkOsID) == *redhat* ]] && {
+        yum remove linux-iamge-"$(uname -r)"
+      }
+      break
+      ;;
+    [Nn]*) exit ;;
+    *) echo "Please answer yes or no." ;;
+    esac
+  done
+
+  [[ $(checkOsID) == *debian* || $(checkOsID) == *ubuntu* ]] && {
+    apt install "$1"
+  }
+  [[ $(checkOsID) == *centos* || $(checkOsID) == *redhat* ]] && {
+    yum install "$1"
+  }
+  admin-updateRamdisk
+}
+
+function admin-crontab-add() {
+  [[ $# == 0 || $1 == "-h" ]] && {
+    echo "Use: ${FUNCNAME[0]} 'crontab1' 'crontab2' ... 'crontab-n'
+    Example: ${FUNCNAME[0]} '@reboot /etc/upstart/setupnetwork.sh' '@reboot /etc/upstart/expandRootdisk.sh'"
+    exit 0
+  }
+  crontab -l >mycron
+
+  for cron in "$@"; do
+    echo "${cron}" >>mycron
+  done
+
+  crontab mycron
+  rm mycron
+}
+
+function admin-bluetooth-fix-pulseaudio() {
+  user=${1}
+  machinectl shell --uid "${user}"
+  systemctl --user enable pulseaudio
+  systemctl --user start pulseaudio
+}
+
+function admin-create-desktop-app() {
+  [[ $# == 0 || $1 == "-h" ]] && {
+    echo "Content of desktop entry:
+                             [Desktop Entry]
+                             Name=Application-name
+                             Exec=path-to-executable
+                             Icon=path-to-icon
+                             Terminal=false
+                             Type=Application
+
+      USE: ${FUNCNAME[0]} [app-name] [path-to-executable] [path-to-icon]
+      Example: ${FUNCNAME[0]} <app-name> <exec_path> <icon_path> [terminal] [type]"
+    return 0
+  }
+
+  local Name="${1}"
+  local Exec="${2}"
+  local Icon="${3}"
+  local Terminal="${4}"
+  local Type="${5}"
+  local appfolder="/usr/share/applications"
+  [[ $Terminal ]] || { Terminal="false"; }
+  [[ $Type ]] || { Type="Application"; }
+
+  local contentDesktopApp="[Desktop Entry]
+  Name=${Name}
+  Exec=${Exec}
+  Icon=${Icon}
+  Terminal=false
+  Type=Application
+  "
+
+  [ ! -e "${Exec}" ] && {
+    echo "Exec path: ${Exec} is not exist"
+    return 1
+  }
+  [ ! -e "${Icon}" ] && {
+    echo "Icon path: ${Icon} is not exist"
+    return 1
+  }
+
+  cd "${appfolder}" && {
+    touch "${Name}.desktop"
+    echo "${contentDesktopApp}" >"${Name}.desktop"
+    chmod +x "${Name}.desktop"
+  }
+
+}
+
+function admin-install-ibus-unikey() {
+  sudo add-apt-repository ppa:ubuntu-vn/ppa
+  sudo apt-get update
+  sudo apt-get install ibus-unikey
+  ibus restart
+}

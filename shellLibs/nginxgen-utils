@@ -1,0 +1,125 @@
+#!/bin/bash
+
+export publicIp=$(curl ifconfig.me 2>/dev/null)
+export nginxgenConName=$(docker ps --format "{{.Names}}" | grep "nginxgen")
+
+nginxgen-apihealthcheck() {
+  curl localhost/status/bestatus
+}
+
+nginxgen-showconfig() {
+  docker cp "${nginxgenConName}":/etc/nginx/conf-http.d/docker-http.conf /tmp/nginx.conf
+  nano -l /tmp/nginx.conf
+}
+
+nginxgen-showloggen() {
+  docker cp "${nginxgenConName}":/var/log/nginx/nginxgen.log /tmp/nginxgen.log
+  tail -100 /tmp/nginxgen.log | jq
+}
+
+nginxgen-gotolog() {
+  cd /mnt/containerdata/nginxgen/var_log_nginx || return 1
+}
+
+nginxgen-gotoconfig() {
+  cd /mnt/containerdata/nginxgen/etc_nginxgen_watchroot || return 1
+}
+
+nginxgen-execbash() {
+  docker exec -it "${nginxgenConName}" bash
+}
+
+nginxgen-json2csv() {
+  if command -v json2csv &>/dev/null; then
+    echo ""
+  else
+    echo "Need install json2csv first."
+    #apt install json2csv
+    return 1
+  fi
+  if="${1}"
+  json2csv -p -k reqid,mlog,host,alpn,remote_addr,x-forwared-for,add-forwarded,remote_user,time_local,request,request_length,bytes_sent,status,agent,ua,rt,uct,uht,urt -i "${if}" -o nginxlog.csv
+}
+
+nginxgen-checkconfig() {
+  docker exec $(docker ps -f name=nginxgen -q) nginx -t
+}
+
+nginxgen-getlog() {
+  service="${1}"
+  client="${2}"
+  date="${3}"
+  token=""
+
+  #[[ ${date} == "" ]] && {
+  #	date=$(date +"%d/%b/%Y:%H:%M:%S" |  cut -d: -f1)
+  #}
+
+  [[ $1 == "-h" || -z $1 ]] && {
+    echo "Usage: sudo $FUNCNAME <service> [client] [date]
+Note: default date: all
+	  default client: all client"
+    return 0
+  }
+
+  case "$client" in
+  "groo")
+    token="8eqsIYq9t2bndUg="
+    ;;
+  "pgb")
+    token="uX-DGZebuw5KX_Q="
+    ;;
+  *)
+    token=""
+    ;;
+  esac
+
+  zgrep -hE "${service}" /mnt/containerdata/nginxgen/var_log_nginx/*.smartocr.vn-access* | grep -E "${token}" | grep -E "${date}"
+}
+
+function nginxgen-createTemplate() {
+  [[ $1 == "-h" || -z $1 ]] && {
+    echo "Usage: $FUNCNAME <Name> <VPROTO (http/https)> <VHOST (domain/ip)> [VPORT/SERVER_ADDRESS] [WHITELISIPS]
+		Example: nginxgen-createTemplate test http nothing.test 10.10.10.10:30 118.70.170.147,101.99.14.221,123.25.21.145,118.70.67.69"
+    return 0
+  }
+
+  Name=${1}
+  VPROTO=${2}
+  VHOST=${3}
+  VPORT_SERVER_ADDRESS=${4}
+  WHITELISIPS=${5}
+
+  if echo "${VPORT_SERVER_ADDRESS}" | grep ":" >>/dev/null; then
+    VPORT_SERVER_ADDRESS="SERVER_ADDRESS = \"${VPORT_SERVER_ADDRESS}\""
+  elif [[ -n "${VPORT_SERVER_ADDRESS}" ]]; then
+    VPORT_SERVER_ADDRESS="VPORT = \"${VPORT_SERVER_ADDRESS}\""
+  else
+    VPORT_SERVER_ADDRESS=""
+  fi
+
+  [[ -z ${WHITELISIPS} ]] && {
+    WHITELISIPS=""
+  } || {
+    WHITELISIPS="WHITELISIPS='''
+${WHITELISIPS}
+'''
+"
+  }
+
+  configToml="[[Containers]]
+Name = \"${Name}\"
+State = {Running = true}
+[Containers.env]
+VPROTO = \"${VPROTO}\"
+HTTPS_METHOD = 'redirect'
+VHOST = '${VHOST}'
+CERTNAME= '${VHOST}'
+${VPORT_SERVER_ADDRESS}
+${WHITELISIPS}
+"
+
+  [[ ! -e $(pwd)/"${Name}".toml ]] && {
+    echo "${configToml}" >"${Name}".toml
+  } || echo "${Name}".toml is already existed in current folder.
+}

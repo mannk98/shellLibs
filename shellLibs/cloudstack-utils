@@ -1,0 +1,111 @@
+#!/bin/bash
+
+cloudstack-sshjump() {
+  if [[ "$1" == "-h" || "$1" == "--help" || -z "$1" ]]; then
+    echo "Usage: cloud_jump <TARGET_IP>"
+    echo
+    echo "Connect to a cloud server behind cloudstackServer."
+    echo
+    echo "Arguments:"
+    echo "  TARGET_IP     The private IP address of the destination server"
+    echo
+    return 1
+  fi
+
+  local TARGET_IP="$1"
+
+  ssh -tt cloudstackServer "bash -c 'source /bin/shellLibs/ocrserver && cloudssh ${TARGET_IP}'"
+}
+
+function cloudstack-genNginxConfig() {
+  [[ $1 == "-h" || -z $1 ]] && {
+    echo "Usage: $FUNCNAME <prefix_domain_name> <IP_Private>
+		Example: nginxgen-createTemplate testdomain 192.167.100.100"
+    return 0
+  }
+
+  prefix_domain_name=${1}
+  IP_Private=${2}
+  WHITELISIPS="
+172.17.0.1,
+210.111.143.41,
+"
+  template='
+Name = "service-ssh"
+State = {Running = true}
+[Containers.env]
+VHOST = "service-ssh"
+DISABLEGNVHOST = "true"
+UNAME = "service-ssh"
+SERVER_ADDRESS = "192.167.10.104:2222"
+
+[[Containers]]
+Name = "service-web"
+State = {Running = true}
+[Containers.env]
+VHOST = "service-web"
+DISABLEGNVHOST = "true"
+UNAME = "service-web"
+SERVER_ADDRESS = "192.167.10.104:80"
+
+
+[[Containers]]
+Name = "service-server"
+State = {Running = true}
+[Containers.env]
+VPROTO = "http"
+HTTPS_METHOD = "redirect"
+VHOST = "service.cloud.test.site"
+CERTNAME= "service.cloud.test.site"
+VPATHDESTS = """/shellbox/,UN:service-ssh
+|/,UN: service-web"""
+'
+  template+="WHITELISIPS = '''""${WHITELISIPS}""'''"
+
+  [[ ! -e $(pwd)/cloudstack-"${prefix_domain_name}".toml ]] && {
+    echo "${template}" >cloudstack-"${prefix_domain_name}".toml.test
+    replaceStringInFile service "${prefix_domain_name}" cloudstack-"${prefix_domain_name}".toml.test
+    replaceStringInFile 192.167.10.104 "${IP_Private}" cloudstack-"${prefix_domain_name}".toml.test
+
+    mv cloudstack-"${prefix_domain_name}".toml.test cloudstack-"${prefix_domain_name}".toml
+    echo "
+" >>cloudstack-"${prefix_domain_name}".toml
+  } || echo cloudstack-"${prefix_domain_name}".toml is already existed in current folder.
+}
+
+function disk-fix-cloudstack-qcow2-image() {
+  [[ $1 == "-h" || -z $1 ]] && {
+    echo "Usage: sudo $FUNCNAME <qcow2_image>"
+    echo "Example: sudo $FUNCNAME /var/lib/libvirt/images/cloudstack.qcow2"
+    return 0
+  }
+  sudo modprobe nbd max_part=8
+  qcow2_image=$1
+  if [[ ! -f $qcow2_image ]]; then
+    log-error "Error: QCOW2 image $qcow2_image not found."
+    return 1
+  fi
+  log-info "Fixing cloudstack qcow2 image $qcow2_image..."
+  sudo qemu-nbd --connect=/dev/nbd0 "$qcow2_image"
+  if [[ $? -ne 0 ]]; then
+    log-error "Error: Failed to connect QCOW2 image to /dev/nbd0."
+    return 1
+  fi
+  fdisk -l /dev/nbd0
+  if [[ $? -ne 0 ]]; then
+    log-error "Error: Failed to list partitions on /dev/nbd0."
+    return 1
+  fi
+  log-info "Fixing partition table on /dev/nbd0..."
+  sudo fsck -y /dev/nbd0p2
+  if [[ $? -ne 0 ]]; then
+    log-error "Error: Failed to fix partition table on /dev/nbd0p2."
+    return 1
+  fi
+  log-info "Disconnecting QCOW2 image from /dev/nbd0..."
+  sudo qemu-nbd --disconnect /dev/nbd0
+  if [[ $? -ne 0 ]]; then
+    log-error "Error: Failed to disconnect QCOW2 image from /dev/nbd0."
+    return 1
+  fi
+}

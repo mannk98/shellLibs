@@ -1,0 +1,92 @@
+#!/bin/bash
+
+source $(which logshell)
+
+function disk-create-one-partition() {
+  [[ $1 == "-h" || -z $1 || -z $2 ]] && {
+    echo "Usage: sudo $FUNCNAME <disk> <filesystem-format>"
+    echo "Example: sudo $FUNCNAME /dev/sda ext4"
+    return 0
+  }
+
+  diskname=$1
+  format=$2
+
+  # Check if the disk exists
+  if [[ ! -b $diskname ]]; then
+    echo "Error: Disk $diskname not found."
+    return 1
+  fi
+
+  echo "Creating a new partition on $diskname..."
+
+  # Create a new partition table (GPT)
+  parted "$diskname" mklabel gpt
+
+  # Create a primary partition on the entire disk
+  parted -a optimal -- "$diskname" mkpart primary "$format" 1MiB 100%
+
+  # Wait a moment to ensure the partition is recognized
+  sleep 2
+  partition="${diskname}1"
+
+  echo "Formatting $partition with $format filesystem..."
+  mkfs."$format" "$partition"
+
+  echo "Partition $partition created and formatted as $format."
+}
+
+function disk-mount-partition() {
+  [[ $1 == "-h" || -z $1 || -z $2 || -z $3 ]] && {
+    echo "Usage: sudo $FUNCNAME <partition> <mount-point> <filesystem-format>"
+    echo "Example: sudo $FUNCNAME /dev/sda1 /mnt/docker/data ext4"
+    return 0
+  }
+
+  partition=$1
+  mount_point=$2
+  format=$3
+
+  if [[ ! -b $partition ]]; then
+    echo "Error: Partition $partition not found."
+    return 1
+  fi
+
+  if [[ ! -d $mount_point ]]; then
+    echo "Creating mount point at $mount_point..."
+    mkdir -p "$mount_point"
+  fi
+
+  # Mount the partition
+  echo "Mounting $partition to $mount_point..."
+  mount "$partition" "$mount_point"
+  if [[ $? -ne 0 ]]; then
+    echo "Error: Failed to mount $partition to $mount_point."
+    return 1
+  fi
+
+  disk_uuid=$(blkid -s UUID -o value "$partition")
+  if [[ -z $disk_uuid ]]; then
+    echo "Error: Failed to retrieve UUID for $partition."
+    return 1
+  fi
+  echo "Adding $partition to /etc/fstab..."
+  fstab_entry="UUID=$disk_uuid $mount_point $format defaults 0 2"
+  echo "$fstab_entry" | tee -a /etc/fstab
+
+  echo "Partition $partition successfully mounted at $mount_point and added to /etc/fstab."
+}
+
+function disk-check-performance() {
+  [[ ${1} == "-h" || -z ${1} ]] && {
+    echo "Use: $FUNCNAME <Ram (GB)>"
+  }
+
+  if command -v hdparm; then
+    echo "Install hdparm command first"
+    return 1
+  fi
+
+  hdparm -Tt /dev/vda && dd if=/dev/zero of=/tmp/output bs=8k count=2GB conv=fdatasync
+  rm -f /tmp/output
+}

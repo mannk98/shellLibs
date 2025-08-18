@@ -1,0 +1,209 @@
+#!/bin/bash
+
+unknown_os() {
+  echo "Unfortunately, your operating system distribution and version are not supported by this script."
+  echo
+  echo "You can override the OS detection by setting os= and dist= prior to running this script."
+  echo "You can find a list of supported OSes and distributions on our website: https://packages.gitlab.com/docs#os_distro_version"
+  echo
+  echo "For example, to force Ubuntu Trusty: os=ubuntu dist=trusty ./script.sh"
+  exit 1
+}
+
+function checkOsID() {
+  cat /etc/os-release | grep "^ID=" | cut -d "=" -f 2
+}
+
+function checkOsVersionID() {
+  cat /etc/os-release | grep "^VERSION_ID=" | cut -d "=" -f 2
+}
+
+function checkOsIDLike() {
+  cat /etc/os-release | grep "^ID_LIKE=" | cut -d "=" -f 2
+}
+
+function checkIPPub() {
+  curl ifconfig.me
+}
+
+function checkIfRootSession() {
+  username="$(echo "$USER")"
+  [[ "${username}" == "root" ]] && {
+    echo "yes"
+    return 0
+  } || echo "no"
+  return 1
+}
+
+function checkIfFileHaveText() {
+  local text="${1}"
+  local filePath="${2}"
+
+  [[ $1 == "-h" || -z $1 ]] && {
+    echo "Usage: sudo ${FUNCNAME[0]} <text> <filePath>
+           Note: filePath oke, not \"filePath\"."
+    return 0
+  }
+
+  if grep -irne "${text}" "${filePath}" &>/dev/null; then
+    echo "yes"
+    return 0
+  else
+    echo "no"
+    return 1
+
+  fi
+}
+
+function checkIfUserExist() {
+  username=${1}
+  if id "${username}"; then
+    echo "yes"
+    return 0
+  else
+    echo "no"
+    return 1
+  fi
+}
+
+function checkIfCommandExist() {
+  local command=${1}
+  if command -v "${command}" >/dev/null; then
+    echo "yes"
+    return 0
+else
+    echo "no"
+    return 1
+  fi
+}
+
+checkOsDistro() {
+  if [[ (-z "${os}") && (-z "${dist}") ]]; then
+    # some systems don't have lsb-release yet have the lsb_release binary and vice versa
+    if [ -e /etc/lsb-release ]; then
+      . /etc/lsb-release
+
+      if [ "${ID}" = "raspbian" ]; then
+        local os=${ID}
+        local dist
+        dist=$(cut --delimiter='.' -f1 /etc/debian_version)
+      else
+        local os=${DISTRIB_ID}
+        dist=${DISTRIB_CODENAME}
+
+        if [ -z "$dist" ]; then
+          dist=${DISTRIB_RELEASE}
+        fi
+      fi
+
+    elif [ "$(which lsb_release 2>/dev/null)" ]; then
+      dist=$(lsb_release -c | cut -f2)
+      local os
+      os=$(lsb_release -i | cut -f2 | awk '{ print tolower($1) }')
+
+    elif [ -e /etc/debian_version ]; then
+      # some Debian have jessie/sid in their /etc/debian_version
+      # while others have '6.0.7'
+      local os
+      os=$(cat /etc/issue | head -1 | awk '{ print tolower($1) }')
+      if grep -q '/' /etc/debian_version; then
+        dist=$(cut --delimiter='/' -f1 /etc/debian_version)
+      else
+        dist=$(cut --delimiter='.' -f1 /etc/debian_version)
+      fi
+
+    else
+      unknown_os
+    fi
+  fi
+
+  if [ -z "$dist" ]; then
+    unknown_os
+  fi
+
+  # remove whitespace from OS and dist name
+  os="${os// /}"
+  dist="${dist// /}"
+
+  echo "$os/$dist."
+}
+
+function checkZombieListAll() {
+  ps aux | grep 'Z'
+}
+
+function checkZombieParents() {
+  [[ -z $1 || $1 = "-h" ]] && {
+    echo "Use: ${FUNCNAME[0]} <pid>"
+  }
+  pstree -p -s "${1}"
+}
+
+function checkCpuClockSpeed() {
+  cat /proc/cpuinfo | grep "MHz"
+}
+
+function checkStressTestCpu() {
+  [[ ${1} == "-h" || -z ${1} ]] && {
+    echo "Use: ${FUNCNAME[0]} <num_cpus> <timeout (seconds)>"
+  }
+
+  if command -v stress; then
+    echo "Install stress command first"
+    return 1
+  fi
+
+  local numCpus=$1
+  local timeOut=$2
+  stress --cpu "${numCpus}" --timeout "${timeOut}"
+}
+
+function checkStressTestRam() {
+  [[ ${1} == "-h" || -z ${1} ]] && {
+    echo "Use: ${FUNCNAME[0]} <Ram (GB)>"
+  }
+
+  if command -v stress; then
+    echo "Install stress command first"
+    return 1
+  fi
+
+  local Ram=$1
+  stress --vm 1 --vm-bytes "${Ram}"G --vm-hang 0
+}
+
+function check-hw-mainboard() {
+  sudo dmidecode -t 2
+}
+
+function check-hw-ram() {
+  lshw -c memory
+}
+
+function check-hw-cpu() {
+  lshw -c cpu
+}
+
+function check-cgroupVersion() {
+  stat -c %T -f /sys/fs/cgroup
+}
+
+function check-systemd-list-services() {
+  systemctl list-units --type=service
+}
+
+function checksysdViewServiceLogs() {
+  [[ ${1} = "-h" || -z ${1} ]] && {
+    echo "Usage:
+sudo ${FUNCNAME[0]} <service_name> [all]"
+    return 0
+  }
+
+  local serviceName=${1}
+  [[ ${2} == "all" ]] && {
+    journalctl -f -u "${serviceName}"
+    return 0
+  }
+  journalctl -f -u "${serviceName}" -b
+
+}

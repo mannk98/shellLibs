@@ -1,0 +1,415 @@
+#!/bin/bash
+
+#check if container is running or not
+#arg: path to container name
+function docker-container-is-running() {
+  [[ ! $1 || $1 == "-h" ]] && {
+    echo "Missing container name to check parameter
+		Use: ${FUNCNAME[0]} <container-name>"
+    return 1
+  }
+  #grep -qie: quiet (don't redirect to stdout/err), ignore uppercase(R)
+  #docker container inspect return Json format --> grep --> if have word running --> return 0 (true)
+  docker container inspect -f '{{.State}}' "${1}" 2>/dev/null | grep -qie 'Running' && return 0 || return 1
+}
+
+#check if docker image is exist or not
+#arg: path to docker image
+function docker-image-is-exist() {
+  [[ ! $1 || $1 == "-h" ]] && {
+    echo "Missing container name to check parameter
+		Use: ${FUNCNAME[0]} <docker-image>"
+    return 1
+  }
+  docker image inspect -f '{{.RepoTags}} {{.Created}}' "${1}" &>/dev/null
+}
+
+#check if docker container is exist or not
+#arg: path to docker container
+function docker-container-is-exist() {
+  [[ ! $1 || $1 == "-h" ]] && {
+    echo "Missing container name to check parameter
+		Use: ${FUNCNAME[0]} <container-name>"
+    return 1
+  }
+  docker container inspect -f '{{.State}}' "$1" &>/dev/null
+}
+
+#create docker network
+#args: [ip] [subnet]
+#return 0 if success, 1 if false
+function docker-network-create() {
+  [[ ! $1 || $1 == "-h" ]] && {
+    echo "Use: ${FUNCNAME[0]} <network-name> <sub-net>"
+    return 1
+  }
+  local OCRNETWORK=$1
+  local OCRNETWORK_SUBNET=$2
+  : "${OCRNETWORK:=mynetwork}"
+  : "${OCRNETWORK_SUBNET:=172.172.0.0/16}"
+
+  docker network create -o "com.docker.network.bridge.name"="${OCRNETWORK}" --subnet="${OCRNETWORK_SUBNET}" "${OCRNETWORK}" && return 0 || return 1
+}
+# docker network create -o "com.docker.network.bridge.name"="ocrnetwork" --subnet="172.172.0.0/24" ocrnetwork
+
+function docker-network-create-overlay() {
+  [[ ! $1 || $1 == "-h" ]] && {
+    echo "Use: ${FUNCNAME[0]} <name> <subnet>"
+    return 1
+  }
+  local name=$1
+  local subnet=$2
+  docker network create --scope=swarm --driver overlay --attachable --subnet="${subnet}" "${name}" && return 0 || return 1
+}
+
+function docker-network-create-bridge-scopeSwarm() {
+  [[ ! $1 || $1 == "-h" ]] && {
+    echo "Use: ${FUNCNAME[0]} <name> <subnet>"
+    return 1
+  }
+  local name=$1
+  local subnet=$2
+  docker network create --scope=swarm --driver bridge --attachable --subnet="${subnet}" "${name}" && return 0 || return 1
+}
+
+#args: [subnet]
+#return subnet of ocrnetwork
+function docker-network-get-cidr() {
+  [[ ! $1 || $1 == "-h" ]] && return 1
+  echo -n $(docker inspect -f '{{range $k, $v := .IPAM.Config}}{{printf $v.Subnet}}{{end}}' "${1}")
+}
+
+#check if container have network configuration
+#arg:
+function docker-network-is-exist() {
+  [[ $1 ]] || return 1
+  # docker network inspect -f: return info about one or more network (json), -f: using Go template
+  docker network inspect -f '{{.Name}}' "${1}" &>/dev/null && return 0 || return 1
+}
+
+docker-find-container-from-hostpid() {
+  { [[ $1 ]] && [[ -d /proc/$1 ]]; } || {
+    echo "Missing host pid - write by thanhson.rf@gmail.com"
+    return 1
+  }
+  hostpid=${1}
+  dnamespace=$(grep -e docker /proc/$hostpid/cgroup | head -n 1 | grep -ioEe '[^/]+$')
+
+  [[ $dnamespace ]] || {
+    echo "Missing host pid - write by thanhson.rf@gmail.com"
+    return 1
+  }
+
+  echo -e "Waitting ....."
+
+  for container in $(docker ps -q --format "{{.Names}}"); do
+    cnamespace=$(docker exec "$container" bash -c 'cat  /proc/1/cgroup')
+    #  echo -e "\n\n___________dnamespace --> $dnamespace================\n\n"
+    #  dnamespace=$(echo "${dnamespace}" | head -n 1 | grep -ioEe '[^/]+$')
+
+    #  echo "Checking on ${container}:  $cnamespace - $dnamespace"
+    echo "$cnamespace" | grep "$dnamespace" &>/dev/null && {
+      echo "PID: $hostpid found in $container"
+      exit 0
+    }
+  done
+  echo "Cannot found"
+}
+
+# use to kill when container is blocked.
+docker-find-hostpid-from-containerName() {
+  containername=${1}
+  ps auxw | grep "$(docker container ls | grep ${containername} | awk '{print $1}')" | awk '{print $2}'
+  #kill -9 12345678
+}
+
+docker-kill-container-by-hostpid() {
+  containername=${1}
+  id=$(ps auxw | grep "$(docker container ls | grep ${containername} | awk '{print $1}')" | awk '{print $2}')
+  kill -9 ${id}
+}
+
+docker-change-rootdir() {
+  [[ $1 == "-h" ]] && {
+    echo "Usage: sudo ${FUNCNAME[0]} <new-docker-root-dir>"
+    return 0
+  }
+
+  newpath=${1}
+  oldpath=$(docker info -f '{{ .DockerRootDir}}')
+
+  log-info "Stoping docker service."
+  systemctl stop docker docker.socket containerd
+  #systemctl stop docker.socket
+  #systemctl stop containerd
+
+  log-info "Copy old root $oldpath to $newpath ..."
+  # if folder exist, do nothing
+  [[ -d ${newpath} ]] && {
+    log-warning "${newpath} is already existed, use exist, not copy data from old root"
+  } || {
+    mkdir -p "${newpath}"
+    cp -rf "${oldpath}" "${newpath}"
+  }
+
+  touch /etc/docker/daemon.json
+
+  log-info "Create new config at /etc/docker/daemon.json"
+  [[ $(checkIfCommandExist nvidia-docker) == "yes" ]] && {
+    config="
+		{
+            \"runtimes\": {
+                \"nvidia\": {
+                    \"path\": \"nvidia-container-runtime\",
+                    \"runtimeArgs\": []
+                }
+            },
+           \"data-root\": \"${newpath}\"
+        }"
+  } || {
+    config="
+        {
+          \"data-root\": \"${newpath}\"
+        }"
+  }
+
+  echo "${config}" >/etc/docker/daemon.json
+  systemctl restart docker
+  log-info "Apply new config, restarting docker service, new root dir is: "
+  docker info -f '{{ .DockerRootDir}}'
+}
+
+docker-updateRestartRules() {
+  [[ -n $(docker ps -q) ]] && {
+    docker update --restart=always $(docker ps -q)
+  }
+
+  [[ -n $(docker ps --filter status=exited -q) ]] && {
+    docker update --restart=no $(docker ps --filter status=exited -q)
+  }
+  echo "Have a good day <3"
+}
+
+docker-mapOverlay2-withImage() {
+  docker inspect $(docker ps -qa) | jq -r 'map([.Name, .GraphDriver.Data.MergedDir]) | .[] | @tsv' | while IFS=$'\t' read -r name dir; do size=$(du -sh "$dir" | awk '{print $1}'); echo -e "$name\t$dir\t$size"; done
+}
+
+docker-updateLimitResource() {
+  [[ ! $1 || $1 == "-h" ]] && {
+    echo "Usage: sudo ${FUNCNAME[0]} <conname> <cpus> <ram> <ram+swap>
+		example: ${FUNCNAME[0]} nginx 4 500M 1GB"
+    return 0
+  }
+
+  conname=${1}
+  cpus=${2}
+  ram=${3}
+  ramAndSwap=${4}
+
+  docker update --cpus "${cpus}" -m "${ram}" --memory-swap "${ramAndSwap}" "${conname}"
+  [[ $? == 0 ]] && {
+    echo "Success update container metrics resource. Have a good day!"
+  }
+}
+
+######################## GET INFO
+docker-getIPInfo() {
+  [[ ! $1 || $1 == "-h" ]] && {
+    echo "Usage: ${FUNCNAME[0]} <container_name>"
+    return 0
+  }
+  conname=${1}
+  docker inspect --format="{{range .NetworkSettings.Networks}}{{.IPAddress}}; {{end}}" "${conname}"
+}
+
+docker-getBindInfo() {
+  [[ ! $1 || $1 == "-h" ]] && {
+    echo "Usage: ${FUNCNAME[0]} <container_name>"
+    return 0
+  }
+  conname=${1}
+  echo "Type, Source, Des, Mode, RW, Propagation"
+  #docker inspect --format="{{range .Mounts}}{{.}}; {{end}}" "${conname}"
+  docker inspect --format="{{range .Mounts}} Type:{{.Type}} RW:{{.RW}} {{.Source}}:{{.Destination}}; {{end}}" "${conname}"
+}
+
+function docker-getIPAll() {
+  docker inspect -f '{{.Name}} - {{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $(docker ps -q)
+}
+
+docker-execBash() {
+  docker exec -it "${1}" bash
+}
+
+######################## BACKUP VOLUME
+function docker-backup-volume() {
+  [[ ! $1 || $1 == "-h" ]] && {
+    echo "Usage: ${FUNCNAME[0]} <container_name_have_volume_need_to_backup> <path-of-volume-mount-inside-container>"
+    return 0
+  }
+  containername=${1}
+  volumeMountInside=${2}
+
+  docker run --rm --volumes-from "${containername}" -v "$(pwd)":/backup debian:12.5 tar cvf /backup/"${containername}".bak.tar -C "${volumeMountInside}" .
+}
+
+function docker-restore-volume() {
+  [[ ! $1 || $1 == "-h" ]] && {
+    echo "Usage: ${FUNCNAME[0]} <restore_voulme> <backup_data_path_file_tar>
+		(auto create restore_voulme_name if it's not existed )"
+    return 0
+  }
+  restoreVolumeName=${1}
+  backup_data_path_file_tar=${2}
+  filename=$(basename "$backup_data_path_file_tar")
+
+  docker volume create "${restoreVolumeName}"
+  docker run --rm -v "${restoreVolumeName}":/volume_data -v "${backup_data_path_file_tar}":/backup/"$filename" debian:12.5 bash -c "cd /volume_data && tar xvf /backup/""$filename"" --strip 1"
+}
+
+function docker-save-image() {
+  [[ ! $1 || $1 == "-h" ]] && {
+    echo "Usage: ${FUNCNAME[0]} <uuid_image/image_name:tag> [name_of_file.tar.gz]"
+    return 0
+  }
+  : "{${2}:=myimage_latest.tar.gz}"
+  docker save "${1}" | gzip >"${2}"
+}
+
+# not commit what you mount
+function docker-commit() {
+  [[ ! $1 || $1 == "-h" ]] && {
+    echo "Usage: ${FUNCNAME[0]} <uuid_image/image_name:tag> <new_image_name:tag> [change_entry_point]"
+    return 0
+  }
+  [[ -n ${3} ]] && {
+    change="--change='ENTRYPOINT ${3}'"
+  }
+  docker commit "${1}" "${2}" "${change}"
+}
+
+function docker-daemon-restart() {
+  sudo systemctl daemon-reload
+  sudo systemctl restart docker
+}
+
+function docker-network-create-macvlan() {
+  [[ ! $1 || $1 == "-h" ]] && {
+    echo "Use: ${FUNCNAME[0]} <parent> <network-name> <host_sub-net> <host_gate-way> <dockerdhcp_ip_range> <hostIP> <macvlan_mode>
+        Example: docker-network-create-macvlan enp1s0 macvlan.enp1s0 10.6.200.0/22 10.6.200.1 10.6.203.236/30 passthru"
+    return 1
+  }
+
+  local parent=$1
+  local network=$2
+  local subnet=$3
+
+  local host_gateway=$4
+  local dockerdhcp_ip_range=$5
+  local macvlan_mode=$6
+
+  [[ -z ${dockerdhcp_ip_range} ]] && {
+    dockerdhcp_ip_range=""
+  } || {
+    dockerdhcp_ip_range="--ip-range ${dockerdhcp_ip_range}"
+  }
+
+  [[ -z ${macvlan_mode} ]] && {
+    macvlan_mode=""
+  } || {
+    macvlan_mode="-o macvlan_mode=${macvlan_mode}"
+  }
+
+  #	[[ -z ${start_ip_of_ip_range} ]] && {
+  #		start_ip_of_ip_range=""
+  #	} || {
+  #		start_ip_of_ip_range="--ip-range ${start_ip_of_ip_range}"
+  #	}
+  dockerruncmd=$(
+    cat <<__
+        docker network create -d macvlan -o parent=${parent} --subnet=${subnet} --gateway ${host_gateway} ${dockerdhcp_ip_range} ${macvlan_mode} ${network}
+__
+  )
+
+  echo "${dockerruncmd}"
+  eval "${dockerruncmd}" && return 0 || return 1
+}
+
+function docker-commit-and-save() {
+  [[ ! $1 || $1 == "-h" ]] && {
+    echo "Usage: ${FUNCNAME[0]} <container-name/id> [tag] [/path/to/save]"
+    return 0
+  }
+  containername=$1
+  tag=$2
+  savedpath=$3
+
+  [[ -z ${savedpath} ]] && {
+    savedpath="./"
+  }
+
+  [[ -z ${tag} ]] && {
+    tag="cloudstackcommit"
+  }
+
+  echo "Info: Commit container to image  ${containername}:${tag}"
+  docker commit "${containername}" "${containername}:${tag}"
+  echo "Info: Save image to ""${savedpath}""/""${containername}"".tar "
+  docker save -o "${savedpath}"/"${containername}".tar "${containername}:${tag}"
+  docker image rm "${containername}":"${tag}"
+}
+
+function docker-swarm-init() {
+  [[ ! $1 || $1 == "-h" ]] && {
+    echo "Usage: ${FUNCNAME[0]} <MANAGER-IP>"
+    return 0
+  }
+  MANAGER_IP=${1}
+  docker swarm init --advertise-addr "${MANAGER_IP}"
+}
+
+function docker-swarm-listNode() {
+  docker node ls
+}
+
+function docker-swarm-join() {
+  [[ ! $1 || $1 == "-h" ]] && {
+    echo "Usage: ${FUNCNAME[0]} <MANAGER-IP> <token>"
+    return 0
+  }
+  MANAGER_IP=${1}
+  token=${2}
+  docker swarm join --token "${token}" "${MANAGER_IP}":2377
+}
+
+function docker-swarm-listService() {
+  docker service ls
+}
+
+function docker-swarm-inspectService() {
+  [[ ! $1 || $1 == "-h" ]] && {
+    echo "Usage: ${FUNCNAME[0]} <service_name>"
+    return 0
+  }
+  service_name=${1}
+  service inspect --pretty "${service_name}"
+}
+
+function docker-swarm-scaleService() {
+  [[ ! $1 || $1 == "-h" ]] && {
+    echo "Usage: ${FUNCNAME[0]} <service_name> <scale_number>"
+    return 0
+  }
+  service_name=${1}
+  scale_number=${2}
+  docker service scale "${service_name}"="${scale_number}"
+}
+
+function docker-swarm-removeService() {
+  [[ ! $1 || $1 == "-h" ]] && {
+    echo "Usage: ${FUNCNAME[0]} <service_name>"
+    return 0
+  }
+  service_name=${1}
+  docker service rm "${scale_number}"
+}

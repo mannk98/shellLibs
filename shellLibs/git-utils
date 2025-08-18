@@ -1,0 +1,142 @@
+#!/bin/bash
+
+#########################
+#    GIT
+#########################
+
+function git-config-name-mail() {
+  [[ $1 == "-h" || -z $1 ]] && {
+    echo "Usage: sudo $FUNCNAME <Your_Name> <your.email@example.com>"
+    return 0
+  }
+  Name=${1}
+  Mail=${2}
+  git config user.name "${Name}"
+  git config user.email "${Mail}"
+}
+
+function git-config-global-name-mail() {
+  [[ $1 == "-h" || -z $1 ]] && {
+    echo "Usage: sudo $FUNCNAME <Your_Name> <your.email@example.com>"
+    return 0
+  }
+  Name=${1}
+  Mail=${2}
+  git config --global user.name "${Name}"
+  git config --global user.email "${Mail}"
+}
+
+function git-commit() {
+  [[ $1 == "-h" || -z $1 ]] && {
+    echo "Usage: sudo $FUNCNAME <commit_message> <commitFileDir>"
+    return 0
+  }
+  commitMessage=${1}
+  commitFileDir=${2}
+  git add "${commitFileDir}"
+  git commit -m "${commitMessage}"
+}
+
+function git-commit-except() {
+  [[ $1 == "-h" || -z $1 ]] && {
+    echo "Usage: sudo $FUNCNAME <commit_message> <commitFileDir> <except_file/folder>"
+    return 0
+  }
+  commitMessage=${1}
+  commitFileDir=${2}
+  except=${3}
+  git add "${commitFileDir}"
+  git commit -m "${commitMessage}"
+  git reset -- "${except}"
+}
+
+function git-push-create-merge() {
+  [[ $1 == "-h" || -z $1 ]] && {
+    echo "Usage: sudo $FUNCNAME <mergeMessage> [nameOfMergeBranch]"
+    return 0
+  }
+  mergeMessage=${1}
+  nameOfMergeBranch=${2}
+  ${nameOfMergeBranch:=mannk_temp_branch}
+  git checkout -b "${nameOfMergeBranch}"
+  git add .
+  git commit -m "${mergeMessage}"
+
+  git push origin "${nameOfMergeBranch}"
+}
+
+function git-rename-newbranch-on-remote() {
+  [[ $1 == "-h" || -z $1 ]] && {
+    echo "Usage: sudo $FUNCNAME <current_branch_name> <new_branch_name>"
+    return 0
+  }
+  old_branch_name=$1
+  new_branch_name=$2
+
+  git branch -m "${old_branch_name}" "${new_branch_name}"
+  git push origin "${new_branch_name}"
+  git push origin --delete "${old_branch_name}"
+  git push --set-upstream origin "${new_branch_name}"
+}
+
+function git-delete-branch-on-remote() {
+  [[ $1 == "-h" || -z $1 ]] && {
+    echo "Usage: sudo $FUNCNAME <branch_name>"
+    return 0
+  }
+  branch_name=$1
+
+  git push origin --delete "${branch_name}"
+  #git branch -d "${branch_name}"
+}
+
+function git-rebase-lastN-commit() {
+  [[ $1 == "-h" || -z $1 ]] && {
+    echo "Usage: sudo $FUNCNAME <branch_name> <last-n-commit>"
+    return 0
+  }
+
+  lastncommit=$2
+  branch_name=$1
+
+  git checkout "${branch_name}"
+  git rebase -i HEAD~"${lastncommit}"
+  echo "INFO: run git push --force-with-lease --> apply change to remote"
+  #git push --force-with-lease
+}
+
+function git-change-author-last-commit() {
+  [[ $1 == "-h" || -z $1 ]] && {
+    echo "Usage: sudo $FUNCNAME <Your_Name> <your.email@example.com>"
+    return 0
+  }
+  Name=${1}
+  Mail=${2}
+  git config user.name "${Name}"
+  git config user.email "${Mail}"
+  commit --amend --reset-author
+}
+
+function git-setup-mannk98-repo() {
+  sshconfig="
+  Host mannk98
+    IdentityFile ~/.ssh/id_github_mannk98
+    HostName github.com
+    User git
+    IdentitiesOnly yes
+
+Match host !mannk98
+    Compression yes
+    LogLevel INFO
+    ForwardAgent yes
+    TCPKeepAlive yes
+    ServerAliveInterval 60
+    ServerAliveCountMax 100"
+
+  if cat ~/.ssh/config | grep -v Match host !mannk98; then
+    echo "${sshconfig}" >>~/.ssh/config
+  fi
+
+  git config --global url."git@mannk98:mannk98".insteadOf "https://github.com/mannk98"
+  go env -w GOPRIVATE=github.com/mannk98
+}

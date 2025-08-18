@@ -1,0 +1,107 @@
+#!/bin/bash
+
+# Text formatting and colors
+BOLD="\033[1m"
+RED="\033[0;31m"
+GREEN="\033[0;32m"
+YELLOW="\033[0;33m"
+NC="\033[0m" # No Color
+
+function _show_help() {
+  echo -e "${BOLD}Usage:${NC}"
+  echo -e "  tar-extract [options] <archive_file> [destination]"
+  echo -e "  tar-view <archive_file>"
+  echo -e "\n${BOLD}Options:${NC}"
+  echo -e "  -h, --help     Show this help message"
+  echo -e "  -v, --verbose  Show verbose output"
+  echo -e "\n${BOLD}Supported formats:${NC}"
+  echo -e "  .tar, .tar.gz, .tgz, .tar.bz2, .tbz2, .tar.xz, .txz"
+  return 0
+}
+
+function _check_file() {
+  if [[ ! -f "$1" ]]; then
+    echo -e "${RED}Error: File '$1' does not exist${NC}" >&2
+    return 1
+  fi
+  if [[ ! -r "$1" ]]; then
+    echo -e "${RED}Error: No read permission for file '$1'${NC}" >&2
+    return 1
+  fi
+  return 0
+}
+
+function tar-extract() {
+  local verbose=""
+  local file=""
+  local dest=""
+  
+  # Parse options
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      -h|--help) _show_help; return 0 ;;
+      -v|--verbose) verbose="v" ; shift ;;
+      --) shift; break ;;
+      -*) echo -e "${RED}Unknown option: $1${NC}" >&2; return 1 ;;
+      *) break ;;
+    esac
+  done
+  
+  file="$1"
+  dest="${2:-.}"
+  
+  [[ -z "$file" ]] && { _show_help; return 1; }
+  _check_file "$file" || return 1
+  
+  if [[ ! -d "$dest" ]]; then
+    mkdir -p "$dest" 2>/dev/null || {
+      echo -e "${RED}Error: Cannot create destination directory '$dest'${NC}" >&2
+      return 1
+    }
+  fi
+  
+  echo -e "${GREEN}Extracting ${file} to ${dest}...${NC}"
+  
+  case "$file" in
+    *.tar.bz2|*.tbz2)  tar xjf${verbose} "$file" -C "$dest" ;;
+    *.tar.gz|*.tgz)    tar xzf${verbose} "$file" -C "$dest" ;;
+    *.tar.xz|*.txz)    tar xJf${verbose} "$file" -C "$dest" ;;
+    *.tar)             tar xf${verbose} "$file" -C "$dest" ;;
+    *.bz2)             bunzip2 -k "$file" ;;
+    *.gz)              gunzip -k "$file" ;;
+    *.zip)             unzip -q "$file" -d "$dest" ;;
+    *.Z)               uncompress "$file" ;;
+    *.7z)              7z x "$file" -o"$dest" ;;
+    *)                 echo -e "${RED}Unknown archive format: ${file}${NC}" >&2; return 1 ;;
+  esac || {
+    echo -e "${RED}Failed to extract ${file}${NC}" >&2
+    return 1
+  }
+  
+  echo -e "${GREEN}Successfully extracted to ${dest}${NC}"
+}
+
+function tar-view() {
+  [[ "$1" == "-h" || "$1" == "--help" || -z "$1" ]] && {
+    echo -e "${BOLD}Usage:${NC} tar-view <archive_file>"
+    return 0
+  }
+  
+  local file="$1"
+  _check_file "$file" || return 1
+  
+  echo -e "${YELLOW}Contents of ${file}:${NC}"
+  
+  case "$file" in
+    *.tar.bz2|*.tbz2)  tar tjf "$file" ;;
+    *.tar.gz|*.tgz)    tar tzf "$file" ;;
+    *.tar.xz|*.txz)    tar tJf "$file" ;;
+    *.tar)             tar tf "$file" ;;
+    *.zip)             unzip -l "$file" ;;
+    *.7z)              7z l "$file" ;;
+    *)                 echo -e "${RED}Unknown archive format: ${file}${NC}" >&2; return 1 ;;
+  esac || {
+    echo -e "${RED}Failed to list contents of ${file}${NC}" >&2
+    return 1
+  }
+}
