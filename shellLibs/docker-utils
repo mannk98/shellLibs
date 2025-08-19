@@ -43,14 +43,14 @@ function docker-network-create() {
     echo "Use: ${FUNCNAME[0]} <network-name> <sub-net>"
     return 1
   }
-  local OCRNETWORK=$1
-  local OCRNETWORK_SUBNET=$2
-  : "${OCRNETWORK:=mynetwork}"
-  : "${OCRNETWORK_SUBNET:=172.172.0.0/16}"
+  local MYNETWORK=$1
+  local MYNETWORK_SUBNET=$2
+  : "${MYNETWORK:=mynetwork}"
+  : "${MYNETWORK_SUBNET:=172.172.0.0/16}"
 
-  docker network create -o "com.docker.network.bridge.name"="${OCRNETWORK}" --subnet="${OCRNETWORK_SUBNET}" "${OCRNETWORK}" && return 0 || return 1
+  docker network create -o "com.docker.network.bridge.name"="${MYNETWORK}" --subnet="${MYNETWORK_SUBNET}" "${MYNETWORK}" && return 0 || return 1
 }
-# docker network create -o "com.docker.network.bridge.name"="ocrnetwork" --subnet="172.172.0.0/24" ocrnetwork
+# docker network create -o "com.docker.network.bridge.name"="MYNETWORK" --subnet="172.172.0.0/24" MYNETWORK
 
 function docker-network-create-overlay() {
   [[ ! $1 || $1 == "-h" ]] && {
@@ -73,7 +73,7 @@ function docker-network-create-bridge-scopeSwarm() {
 }
 
 #args: [subnet]
-#return subnet of ocrnetwork
+#return subnet of MYNETWORK
 function docker-network-get-cidr() {
   [[ ! $1 || $1 == "-h" ]] && return 1
   echo -n $(docker inspect -f '{{range $k, $v := .IPAM.Config}}{{printf $v.Subnet}}{{end}}' "${1}")

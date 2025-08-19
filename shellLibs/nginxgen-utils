@@ -74,7 +74,7 @@ Note: default date: all
     ;;
   esac
 
-  zgrep -hE "${service}" /mnt/containerdata/nginxgen/var_log_nginx/*.smartocr.vn-access* | grep -E "${token}" | grep -E "${date}"
+  zgrep -hE "${service}" /mnt/containerdata/nginxgen/var_log_nginx/*.domain.vn-access* | grep -E "${token}" | grep -E "${date}"
 }
 
 function nginxgen-createTemplate() {
