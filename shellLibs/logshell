@@ -1,48 +1,91 @@
 #!/bin/bash
-#author thanhson.rf@gmail.com
-function echo-white() { printf "\n\033[0;37m${*}\n\033[0m"; }
-function echo-purple() { printf "\n\033[0;35m${*}\n\033[0m"; }
-function echo-red() { printf "\n\033[0;31m${*}\n\033[0m"; }
-function echo-blue() { printf "\n\033[0;34m${*}\n\033[0m"; }
-function echo-yellow() { printf "\n\033[0;33m${*}\n\033[0m"; }
-function echo-greenu() { printf "\n\033[4;32m${*}\n\033[0m"; }
-# export -f echo-greenu1
-# export -f echo-white
-# export -f echo-yellow
-# export -f echo-blue
-# export -f echo-purple
-# export -f echo-red
+# Shell logging utility with color support
+# Author: thanhson.rf@gmail.com
 
-function timespec() {
-  #   STAMP="$(echo $(date +"%b %d %T %:z") $(hostname)) "
-  #   STAMP="$(echo $(date +"%b %d %T %:z"))"
+# Color codes
+COLOR_RESET='\033[0m'
+COLOR_WHITE='\033[0;37m'
+COLOR_PURPLE='\033[0;35m'
+COLOR_RED='\033[0;31m'
+COLOR_BLUE='\033[0;34m'
+COLOR_YELLOW='\033[0;33m'
+COLOR_GREEN_U='\033[4;32m'
+
+# Log levels
+LOG_LEVEL_DEBUG=0
+LOG_LEVEL_INFO=1
+LOG_LEVEL_WARNING=2
+LOG_LEVEL_ERROR=3
+LOG_LEVEL_RUN=4
+LOG_LEVEL_STEP=5
+
+# Default log level (can be overridden)
+: "${LOG_LEVEL:=${LOG_LEVEL_DEBUG}}"
+
+# Log to file (uncomment and set to enable)
+# : "${LOG_FILE:=/var/log/myscript.log}"
+
+# Internal function to get timestamp
+_get_timestamp() {
   STAMP="$(date +"%F %T,%3N")"
-  echo "${STAMP}"
+  #echo "${STAMP}"
+  printf "${STAMP}"
 }
 
-# ${*} bundled "arr1 arr2 ... arrn", ${@}: separate "arr1" "arr2" ... "arrn"
-function log-info() {
-  echo-white "$(timespec)[info] ${*}"
+# Internal logging function
+_log() {
+  local level="$1"
+  local color="$2"
+  local level_str="$3"
+  shift 3
+
+  local timestamp
+  timestamp=$(_get_timestamp)
+  local log_msg="${timestamp}[${level_str}] ${*}"
+
+  # Print to console
+  printf "%b%s%b\n\n" "${color}" "${log_msg}" "${COLOR_RESET}"
+
+  # Log to file if enabled
+  if [[ -n "${LOG_FILE}" ]]; then
+    printf "%s\n" "${log_msg}" >>"${LOG_FILE}"
+  fi
 }
 
-function log-warning() {
-  echo-purple "$(timespec)[warr] ${*}"
+# Public logging functions
+log-debug() {
+  ((LOG_LEVEL <= LOG_LEVEL_DEBUG)) && _log "$LOG_LEVEL_DEBUG" "$COLOR_BLUE" "dbg" "$@"
 }
 
-function log-error() {
-  echo-red "$(timespec)[err] ${*}"
+log-info() {
+  ((LOG_LEVEL <= LOG_LEVEL_INFO)) && _log "$LOG_LEVEL_INFO" "$COLOR_WHITE" "info" "$@"
 }
 
-function log-debug() {
-  echo-blue "$(timespec)[dbg] ${*}"
+log-warning() {
+  ((LOG_LEVEL <= LOG_LEVEL_WARNING)) && _log "$LOG_LEVEL_WARNING" "$COLOR_YELLOW" "warn" "$@"
 }
 
-function log-run() {
-  echo-yellow "$(timespec)[run] ${*}"
+log-error() {
+  ((LOG_LEVEL <= LOG_LEVEL_ERROR)) && _log "$LOG_LEVEL_ERROR" "$COLOR_RED" "err" "$@"
 }
 
-function log-step() {
-  echo-greenu "$(timespec)[step] ${*}"
+log-run() {
+  ((LOG_LEVEL <= LOG_LEVEL_RUN)) && _log "$LOG_LEVEL_RUN" "$COLOR_PURPLE" "run" "$@"
 }
 
-## just test
+log-step() {
+  ((LOG_LEVEL <= LOG_LEVEL_STEP)) && _log "$LOG_LEVEL_STEP" "$COLOR_GREEN_U" "step" "$@"
+}
+
+# Export functions if needed
+export -f log-debug log-info log-warning log-error log-run log-step
+
+# Example usage:
+# LOG_LEVEL=$LOG_LEVEL_INFO  # Set log level
+# source logshell
+# log-debug "This is a debug message"
+# log-info "This is an info message"
+# log-warning "This is a warning"
+# log-error "This is an error"
+# log-run "Running command"
+# log-step "Starting process"

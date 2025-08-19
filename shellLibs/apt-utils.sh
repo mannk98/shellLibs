@@ -329,17 +329,3 @@ apt-setup-localrepo-cenred() {
   cp -r /tmp/yum/yumcache/* "${localrepodir}"
 
 }
-
-apt-setup-OCRInstall() {
-  curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg &&
-    curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list |
-    sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' |
-      sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
-
-  sudo apt-get update
-  apt-setup-localrepo-debubuntu gcc linux-headers-"$(uname -r)" nvidia-container-toolkit
-}
-
-apt-remove-NvidiaDriver() {
-  sudo apt-get remove --purge '^nvidia-.*'
-}
