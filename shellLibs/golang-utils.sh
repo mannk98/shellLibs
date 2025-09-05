@@ -21,7 +21,7 @@ function go-init-testProj() {
 function go-setup-privateRepo() {
   [[ -z $1 || $1 == "-h" ]] && {
     echo "Use: $FUNCNAME <httpurl> <sshurl>
-    Example: https://github.com/BrightsHoldings git@github.com:/BrightsHoldings"
+    Example: https://github.com/mannk98 git@github.com:/mannk98"
   }
 
   export GOPRIVATE=${2}/*
