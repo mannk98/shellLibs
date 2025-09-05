@@ -118,25 +118,71 @@ function git-change-author-last-commit() {
 }
 
 function git-setup-mannk98-repo() {
-  sshconfig="
-  Host mannk98
-    IdentityFile ~/.ssh/id_github_mannk98
-    HostName github.com
-    User git
-    IdentitiesOnly yes
+  local ssh_config_file="$HOME/.ssh/config"
+  local ssh_host="mannk98"
+  local identity_file="$HOME/.ssh/id_github_mannk98"
+  local github_hostname="github.com"
+  local repo_owner="mannk98"
 
-Match host !mannk98
-    Compression yes
-    LogLevel INFO
-    ForwardAgent yes
-    TCPKeepAlive yes
-    ServerAliveInterval 60
-    ServerAliveCountMax 100"
+  # SSH configuration template
+  local ssh_config="
+Host $ssh_host
+  HostName $github_hostname
+  User git
+  IdentityFile $identity_file
+  IdentitiesOnly yes
+  Compression yes
+  LogLevel INFO
+  ForwardAgent yes
+  TCPKeepAlive yes
+  ServerAliveInterval 60
+  ServerAliveCountMax 100
+"
 
-  if cat ~/.ssh/config | grep -v Match host !mannk98; then
-    echo "${sshconfig}" >>~/.ssh/config
+  # Ensure ~/.ssh directory exists
+  if [[ ! -d "$HOME/.ssh" ]]; then
+    mkdir -p "$HOME/.ssh" || {
+      echo "Error: Failed to create ~/.ssh directory."
+      return 1
+    }
+    chmod 700 "$HOME/.ssh"
+
+
+  # Check if SSH config file exists, create if it doesn't
+  if [[ ! -f "$ssh_config_file" ]]; then
+    touch "$ssh_config_file" || {
+      echo "Error: Failed to create $ssh_config_file."
+      return 1
+    }
+    chmod 600 "$ssh_config_file"
+
+
+  # Check if the specific Host entry already exists
+  if grep -q "^Host $ssh_host$" "$ssh_config_file"; then
+    echo "Info: SSH configuration for $ssh_host already exists in $ssh_config_file."
+  else
+    # Append SSH configuration
+    if ! echo "$ssh_config" >> "$ssh_config_file"; then
+      echo "Error: Failed to append SSH configuration to $ssh_config_file."
+      return 1
+    echo "Info: Added SSH configuration for $ssh_host to $ssh_config_file."
   fi
 
-  git config --global url."git@mannk98:mannk98".insteadOf "https://github.com/mannk98"
-  go env -w GOPRIVATE=github.com/mannk98
+  # Configure Git to use SSH instead of HTTPS
+  if ! git config --global url."git@$ssh_host:$repo_owner".insteadOf "https://$github_hostname/$repo_owner"; then
+    echo "Error: Failed to configure Git URL substitution."
+    return 1
+  echo "Info: Configured Git to use SSH for https://$github_hostname/$repo_owner."
+
+  # Configure Go private repository
+  if command -v go >/dev/null 2>&1; then
+    if ! go env -w GOPRIVATE="$github_hostname/$repo_owner"; then
+      echo "Error: Failed to set GOPRIVATE environment variable."
+      return 1
+    echo "Info: Set GOPRIVATE to $github_hostname/$repo_owner."
+  else
+    echo "Warning: Go is not installed. Skipping GOPRIVATE configuration."
+  fi
+
+  return 0
 }
