@@ -20,7 +20,7 @@ go-init-testProj() {
     echo "Error: Failed to clone gotools repository."
     rm -rf "$tmpdir"
     return 1
-  }
+  fi
 
   cd "$tmpdir/gotools" || {
     echo "Error: Failed to change to gotools directory."
@@ -32,14 +32,14 @@ go-init-testProj() {
     echo "Error: Failed to build gotools."
     rm -rf "$tmpdir"
     return 1
-  }
+  fi
 
   # Initialize project
   if ! ./gotools mod_init test || ! ./gotools init --viper || ! ./gotools mod_tidy; then
     echo "Error: Failed to initialize test project."
     rm -rf "$tmpdir"
     return 1
-  }
+  fi
 
   echo "Info: Test project created at: $tmpdir/gotools"
   return 0
@@ -51,7 +51,7 @@ go-setup-privateRepo() {
     echo "Usage: $FUNCNAME <http-url> <ssh-url>"
     echo "Example: $FUNCNAME https://github.com/mannk98 git@github.com:mannk98"
     return 1
-  }
+  fi
 
   local http_url=$1
   local ssh_url=$2
@@ -60,7 +60,7 @@ go-setup-privateRepo() {
   if [[ ! $http_url =~ ^https?:// || ! $ssh_url =~ ^git@ ]]; then
     echo "Error: Invalid URL format. Ensure HTTP and SSH URLs are correct."
     return 1
-  }
+  fi
 
   export GOPRIVATE="${ssh_url}/*"
   git config --global url."${ssh_url}".insteadOf "${http_url}"

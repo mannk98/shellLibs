@@ -146,7 +146,7 @@ Host $ssh_host
       return 1
     }
     chmod 700 "$HOME/.ssh"
-
+  fi
 
   # Check if SSH config file exists, create if it doesn't
   if [[ ! -f "$ssh_config_file" ]]; then
@@ -155,33 +155,35 @@ Host $ssh_host
       return 1
     }
     chmod 600 "$ssh_config_file"
-
+  fi
 
   # Check if the specific Host entry already exists
   if grep -q "^Host $ssh_host$" "$ssh_config_file"; then
     echo "Info: SSH configuration for $ssh_host already exists in $ssh_config_file."
   else
     # Append SSH configuration
-    if ! echo "$ssh_config" >> "$ssh_config_file"; then
+    if ! echo "$ssh_config" >>"$ssh_config_file"; then
       echo "Error: Failed to append SSH configuration to $ssh_config_file."
       return 1
-    echo "Info: Added SSH configuration for $ssh_host to $ssh_config_file."
-  fi
+      echo "Info: Added SSH configuration for $ssh_host to $ssh_config_file."
+    fi
 
-  # Configure Git to use SSH instead of HTTPS
-  if ! git config --global url."git@$ssh_host:$repo_owner".insteadOf "https://$github_hostname/$repo_owner"; then
-    echo "Error: Failed to configure Git URL substitution."
-    return 1
-  echo "Info: Configured Git to use SSH for https://$github_hostname/$repo_owner."
-
-  # Configure Go private repository
-  if command -v go >/dev/null 2>&1; then
-    if ! go env -w GOPRIVATE="$github_hostname/$repo_owner"; then
-      echo "Error: Failed to set GOPRIVATE environment variable."
+    # Configure Git to use SSH instead of HTTPS
+    if ! git config --global url."git@$ssh_host:$repo_owner".insteadOf "https://$github_hostname/$repo_owner"; then
+      echo "Error: Failed to configure Git URL substitution."
       return 1
-    echo "Info: Set GOPRIVATE to $github_hostname/$repo_owner."
-  else
-    echo "Warning: Go is not installed. Skipping GOPRIVATE configuration."
+      echo "Info: Configured Git to use SSH for https://$github_hostname/$repo_owner."
+    fi
+    # Configure Go private repository
+    if command -v go >/dev/null 2>&1; then
+      if ! go env -w GOPRIVATE="$github_hostname/$repo_owner"; then
+        echo "Error: Failed to set GOPRIVATE environment variable."
+        return 1
+        echo "Info: Set GOPRIVATE to $github_hostname/$repo_owner."
+      else
+        echo "Warning: Go is not installed. Skipping GOPRIVATE configuration."
+      fi
+    fi
   fi
 
   return 0
