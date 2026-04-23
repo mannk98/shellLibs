@@ -1,0 +1,21 @@
+# Files are installed to /bin/shellLibs and sourced via `source "$(which <name>)"`.
+# shellcheck can't statically resolve that path, so SC1090 fires on every source line.
+# Silencing it globally is intentional; the dynamic source pattern is load-bearing.
+disable=SC1090
+
+# $FUNCNAME is an array but `$FUNCNAME` resolves to FUNCNAME[0] (the current function's
+# name) — which is the intended use everywhere in this repo (usage strings, logs).
+# Silencing avoids 66 noise warnings without hiding any real array mistakes.
+disable=SC2128
+
+# `cat file | grep …` / `cat file | awk …` is used idiomatically throughout. Replacing
+# with `< file` shifts the redirection and reads worse for shell beginners.
+disable=SC2002
+
+# `ps aux | grep …` is used where the surrounding awk logic wants the full ps row;
+# pgrep isn't a drop-in replacement and would require restructuring each call.
+disable=SC2009
+
+# Same family as SC1090 — shellcheck can't follow the `. /etc/lsb-release` source;
+# that file is provided by the OS at runtime.
+disable=SC1091

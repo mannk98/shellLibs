@@ -4,6 +4,16 @@
 source ./shellLibs/logshell
 source ./shellLibs/checksystem
 
+# Resolve which user's ~/.bashrc we should append to. When invoked via `sudo`,
+# $HOME and ~ point at /root — but the block needs to land in the *invoking*
+# user's .bashrc so their next shell actually picks up shellLibs.
+if [[ -n ${SUDO_USER:-} && ${SUDO_USER} != "root" ]]; then
+	target_home=$(getent passwd "${SUDO_USER}" | cut -d: -f6)
+else
+	target_home=${HOME}
+fi
+target_bashrc="${target_home}/.bashrc"
+
 [[ $(checkIfRootSession) == "no" ]] && {
 	log-step "Run as $USER"
 	log-warning "Run as $USER non root only add script to ~/.bashrc, need to run as root to install src first."
@@ -15,32 +25,38 @@ log-info "Delete old source at /bin"
 rm -rf /bin/shellLibs
 
 [[ -e "/bin/apt-port" ]] && {
-    oldSourceFiles=($(ls ./shellLibs))
-    for file in "${oldSourceFiles[@]}"; do
-    	rm -f $(which ${file})
+    for file in ./shellLibs/*; do
+    	rm -f "$(which "${file##*/}")"
     done
 }
 
 # new installed
 chmod +x ./shellLibs/*
-cp -r shellLibs /bin
-
-[[ $? != 0 ]] && {
+if ! cp -r shellLibs /bin; then
 	exit 1
-} || log-info "Done cp shellLibs to /bin/bash folder."
+fi
+log-info "Done cp shellLibs to /bin/bash folder."
 }
 
-sourceShellFiles='
-export PATH="$PATH:/bin/shellLibs"
+# Managed block is delimited by unique markers so re-installs can remove the
+# old copy and append a fresh one without touching the rest of .bashrc.
+block_begin="# >>> shellLibs managed block >>>"
+block_end="# <<< shellLibs managed block <<<"
+
+# shellcheck disable=SC2016  # single-quoted template: $PATH and $(...) must be literal
+sourceShellFiles="${block_begin}
+# Managed by shellLibs install.sh — do not edit by hand; re-run install.sh to refresh.
+"'export PATH="$PATH:/bin/shellLibs"
 
 listSourceFiles=($(ls /bin/shellLibs))
 for file in "${listSourceFiles[@]}"; do
 	source $(which ${file})
-done'
+done
+'"${block_end}"
 
-[[ $(checkIfFileHaveText "listSourceFiles" ~/.bashrc) == "yes" ]] && {
-	log-info "~/.bashrc already have source source files"
-} || {
-	echo "${sourceShellFiles}" >>~/.bashrc
-	log-info "Done add source source files to ~/.bashrc"
-}
+if [[ -f ${target_bashrc} ]] && grep -qF "${block_begin}" "${target_bashrc}"; then
+	sed -i "/${block_begin}/,/${block_end}/d" "${target_bashrc}"
+	log-info "Removed previous shellLibs block from ${target_bashrc}"
+fi
+echo "${sourceShellFiles}" >>"${target_bashrc}"
+log-info "Appended shellLibs block to ${target_bashrc}"

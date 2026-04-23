@@ -64,8 +64,8 @@ VPATHDESTS = """/shellbox/,UN:service-ssh
 
   [[ ! -e $(pwd)/cloudstack-"${prefix_domain_name}".toml ]] && {
     echo "${template}" >cloudstack-"${prefix_domain_name}".toml.test
-    replaceStringInFile service "${prefix_domain_name}" cloudstack-"${prefix_domain_name}".toml.test
-    replaceStringInFile 192.167.10.104 "${IP_Private}" cloudstack-"${prefix_domain_name}".toml.test
+    sed -i "s|service|${prefix_domain_name}|g" cloudstack-"${prefix_domain_name}".toml.test
+    sed -i "s|192.167.10.104|${IP_Private}|g" cloudstack-"${prefix_domain_name}".toml.test
 
     mv cloudstack-"${prefix_domain_name}".toml.test cloudstack-"${prefix_domain_name}".toml
     echo "
@@ -86,25 +86,21 @@ function disk-fix-cloudstack-qcow2-image() {
     return 1
   fi
   log-info "Fixing cloudstack qcow2 image $qcow2_image..."
-  sudo qemu-nbd --connect=/dev/nbd0 "$qcow2_image"
-  if [[ $? -ne 0 ]]; then
+  if ! sudo qemu-nbd --connect=/dev/nbd0 "$qcow2_image"; then
     log-error "Error: Failed to connect QCOW2 image to /dev/nbd0."
     return 1
   fi
-  fdisk -l /dev/nbd0
-  if [[ $? -ne 0 ]]; then
+  if ! fdisk -l /dev/nbd0; then
     log-error "Error: Failed to list partitions on /dev/nbd0."
     return 1
   fi
   log-info "Fixing partition table on /dev/nbd0..."
-  sudo fsck -y /dev/nbd0p2
-  if [[ $? -ne 0 ]]; then
+  if ! sudo fsck -y /dev/nbd0p2; then
     log-error "Error: Failed to fix partition table on /dev/nbd0p2."
     return 1
   fi
   log-info "Disconnecting QCOW2 image from /dev/nbd0..."
-  sudo qemu-nbd --disconnect /dev/nbd0
-  if [[ $? -ne 0 ]]; then
+  if ! sudo qemu-nbd --disconnect /dev/nbd0; then
     log-error "Error: Failed to disconnect QCOW2 image from /dev/nbd0."
     return 1
   fi

@@ -2,22 +2,23 @@
 
 source "$(which checksystem)"
 
-export oscheck
-oscheck="$(checkOsID)"
+# Lazily populate $oscheck on first use — avoids reading /etc/os-release at every
+# shell startup. Functions below call this at entry; subsequent calls are free.
+_apt_oscheck() {
+  [[ -n ${oscheck:-} ]] || oscheck=$(checkOsID)
+}
 
 #Updating package database
 apt-update() {
+  _apt_oscheck
   [[ ${oscheck} == *"alpine"* ]] && {
-    apk update
-    [[ $? != 0 ]] && return 1
+    apk update || return 1
   }
   [[ ${oscheck} == *"centos"* || ${oscheck} == *"almalinux"* || ${oscheck} == *"rocky"* ]] && {
-    yum update
-    [[ $? != 0 ]] && return 1
+    yum update || return 1
   }
   [[ ${oscheck} == *"debian"* || ${oscheck} == *"ubuntu"* ]] && {
-    apt update
-    [[ $? != 0 ]] && return 1
+    apt update || return 1
   }
   return 0
 }
@@ -25,17 +26,15 @@ apt-update() {
 #Showing available updates
 # apt list --upgradeable
 apt-list-upgradable() {
+  _apt_oscheck
   [[ ${oscheck} == *"alpine"* ]] && {
-    apk version -v
-    [[ $? != 0 ]] && return 1
+    apk version -v || return 1
   }
   [[ ${oscheck} == *"centos"* || ${oscheck} == *"almalinux"* || ${oscheck} == *"rocky"* ]] && {
-    yum list updates
-    [[ $? != 0 ]] && return 1
+    yum list updates || return 1
   }
   [[ ${oscheck} == *"debian"* || ${oscheck} == *"ubuntu"* ]] && {
-    apt list --upgradable
-    [[ $? != 0 ]] && return 1
+    apt list --upgradable || return 1
   }
   return 0
 }
@@ -43,17 +42,15 @@ apt-list-upgradable() {
 #Showing installed
 # apt list --installed
 apt-list-installed() {
+  _apt_oscheck
   [[ ${oscheck} == *"alpine"* ]] && {
-    apk version -v
-    [[ $? != 0 ]] && return 1
+    apk version -v || return 1
   }
   [[ ${oscheck} == *"centos"* || ${oscheck} == *"almalinux"* || ${oscheck} == *"rocky"* ]] && {
-    yum list installed
-    [[ $? != 0 ]] && return 1
+    yum list installed || return 1
   }
   [[ ${oscheck} == *"debian"* || ${oscheck} == *"ubuntu"* ]] && {
-    apt list --installed
-    [[ $? != 0 ]] && return 1
+    apt list --installed || return 1
   }
 
   return 0
@@ -62,42 +59,39 @@ apt-list-installed() {
 #Showing package info
 # apt show
 apt-show() {
+  _apt_oscheck
   local packageName="$1"
   [[ ${oscheck} == *"alpine"* ]] && {
-    apk search "${packageName}"
-    [[ $? != 0 ]] && return 1
+    apk search "${packageName}" || return 1
   }
   [[ ${oscheck} == *"centos"* || ${oscheck} == *"almalinux"* || ${oscheck} == *"rocky"* ]] && {
-    yum info "${packageName}"
-    [[ $? != 0 ]] && return 1
+    yum info "${packageName}" || return 1
   }
   [[ ${oscheck} == *"debian"* || ${oscheck} == *"ubuntu"* ]] && {
-    apt show "${packageName}"
-    [[ $? != 0 ]] && return 1
+    apt show "${packageName}" || return 1
   }
   return 0
 }
 
 #Install package -q
 apt-install-quite() {
+  _apt_oscheck
   #echo "$@"
   [[ ${oscheck} == *"alpine"* ]] && {
     for value in "$@"; do
-      apk add -y -q "${value}" && apk upgrade
-      [[ $? != 0 ]] && return 1
+      apk add -y -q "${value}" || return 1
+      apk upgrade || return 1
     done
   }
   [[ ${oscheck} == *"centos"* || ${oscheck} == *"almalinux"* || ${oscheck} == *"rocky"* ]] && {
     for value in "$@"; do
-      yum install -y -q "${value}" #&& apk upgrade
-      [[ $? != 0 ]] && return 1
+      yum install -y -q "${value}" || return 1
     done
   }
   [[ ${oscheck} == *"debian"* || ${oscheck} == *"ubuntu"* ]] && {
     for value in "$@"; do
       echo "${value}"
-      apt install -y -q "${value}" #&& apk upgrade
-      [[ $? != 0 ]] && return 1
+      apt install -y -q "${value}" || return 1
     done
   }
 
@@ -105,24 +99,23 @@ apt-install-quite() {
 }
 
 apt-install() {
+  _apt_oscheck
   #echo "$@"
   [[ ${oscheck} == *"alpine"* ]] && {
     for value in "$@"; do
-      apk add -y "${value}" && apk upgrade
-      [[ $? != 0 ]] && return 1
+      apk add -y "${value}" || return 1
+      apk upgrade || return 1
     done
   }
   [[ ${oscheck} == *"centos"* || ${oscheck} == *"almalinux"* || ${oscheck} == *"rocky"* ]] && {
     for value in "$@"; do
-      yum install -y "${value}" #&& apk upgrade
-      [[ $? != 0 ]] && return 1
+      yum install -y "${value}" || return 1
     done
   }
   [[ ${oscheck} == *"debian"* || ${oscheck} == *"ubuntu"* ]] && {
     for value in "$@"; do
       echo "${value}"
-      apt install -y "${value}" #&& apk upgrade
-      [[ $? != 0 ]] && return 1
+      apt install -y "${value}" || return 1
     done
   }
   return 0
@@ -130,22 +123,20 @@ apt-install() {
 
 #Remove package
 apt-remove() {
+  _apt_oscheck
   [[ ${oscheck} == *"alpine"* ]] && {
     for value in "$@"; do
-      apk del -y -q "${value}"
-      [[ $? != 0 ]] && return 1
+      apk del -y -q "${value}" || return 1
     done
   }
   [[ ${oscheck} == *"centos"* || ${oscheck} == *"almalinux"* || ${oscheck} == *"rocky"* ]] && {
     for value in "$@"; do
-      yum remove -y -q "${value}" #&& apk upgrade
-      [[ $? != 0 ]] && return 1
+      yum remove -y -q "${value}" || return 1
     done
   }
   [[ ${oscheck} == *"debian"* || ${oscheck} == *"ubuntu"* ]] && {
     for value in "$@"; do
-      apt remove -y -q "${value}" #&& apk upgrade
-      [[ $? != 0 ]] && return 1
+      apt remove -y -q "${value}" || return 1
     done
   }
   return 0
@@ -153,65 +144,60 @@ apt-remove() {
 
 #Searching the package database
 apt-search() {
+  _apt_oscheck
   local package="$1"
   [[ ${oscheck} == *"alpine"* ]] && {
-    apk search "${package}"
-    [[ $? != 0 ]] && return 1
+    apk search "${package}" || return 1
   }
   [[ ${oscheck} == *"centos"* || ${oscheck} == *"almalinux"* || ${oscheck} == *"rocky"* ]] && {
-    yum search "${package}"
-    [[ $? != 0 ]] && return 1
+    yum search "${package}" || return 1
   }
   [[ ${oscheck} == *"debian"* || ${oscheck} == *"ubuntu"* ]] && {
-    apt search "${package}"
-    [[ $? != 0 ]] && return 1
+    apt search "${package}" || return 1
   }
   return 0
 }
 
 #Remove package and config file
 apt-purge() {
+  _apt_oscheck
   local package="$1"
   [[ ${oscheck} == *"alpine"* ]] && {
-    apk del --purge "${package}"
-    [[ $? != 0 ]] && return 1
+    apk del --purge "${package}" || return 1
   }
   [[ ${oscheck} == *"centos"* || ${oscheck} == *"almalinux"* || ${oscheck} == *"rocky"* ]] && {
-    sudo package-cleanup --orphans "${package}"
-    [[ $? != 0 ]] && return 1
+    sudo package-cleanup --orphans "${package}" || return 1
   }
   [[ ${oscheck} == *"debian"* || ${oscheck} == *"ubuntu"* ]] && {
-    apt purge "${package}"
-    [[ $? != 0 ]] && return 1
+    apt purge "${package}" || return 1
   }
   return 0
 }
 
 #Only downloading packages
 apt-install-download-only() {
+  _apt_oscheck
   [[ ${oscheck} == *"alpine"* ]] && {
     for value in "$@"; do
-      apk fetch "${value}"
-      [[ $? != 0 ]] && return 1
+      apk fetch "${value}" || return 1
     done
   }
   [[ ${oscheck} == *"centos"* || ${oscheck} == *"almalinux"* || ${oscheck} == *"rocky"* ]] && {
     yum install yum-downloadonly &>/dev/null
     for value in "$@"; do
-      yum install --download-only "${value}"
-      [[ $? != 0 ]] && return 1
+      yum install --download-only "${value}" || return 1
     done
   }
   [[ ${oscheck} == *"debian"* || ${oscheck} == *"ubuntu"* ]] && {
     for value in "$@"; do
-      apt install --download-only "${value}"
-      [[ $? != 0 ]] && return 1
+      apt install --download-only "${value}" || return 1
     done
   }
   return 0
 }
 
 apt-fix-broken-depend() {
+  _apt_oscheck
   [[ ${oscheck} == *"debian"* || ${oscheck} == *"ubuntu"* ]] && {
     apt install -f
   }
@@ -220,6 +206,7 @@ apt-fix-broken-depend() {
 
 # clean /var/cache/apt/archives && /var/cache/apt/archives/partial/
 apt-clean-cache() {
+  _apt_oscheck
   [[ ${oscheck} == *"debian"* || ${oscheck} == *"ubuntu"* ]] && {
     apt clean
   }
@@ -228,6 +215,7 @@ apt-clean-cache() {
 
 # search what package provide file / header file (.h)
 apt-file-search() {
+  _apt_oscheck
   filename=${1}
   [[ ${oscheck} == *"debian"* || ${oscheck} == *"ubuntu"* ]] && {
     apt-file search "${filename}"
@@ -242,12 +230,11 @@ APT::Periodic::Unattended-Upgrade \"0\";"
 
   if echo "${content}" >/etc/apt/apt.conf.d/20auto-upgrades; then
     systemctl restart apt-daily.timer
+    echo "apt auto update is disabled"
     return 0
   else
     return 1
   fi
-
-  echo "apt auto update is disabled"
 }
 
 apt-disable-autoupdate() {
@@ -257,11 +244,11 @@ APT::Periodic::Unattended-Upgrade \"0\";"
 
   if echo "${content}" >/etc/apt/apt.conf.d/20auto-upgrades; then
     systemctl restart apt-daily.timer
+    echo "apt auto update is disabled"
     return 0
   else
     return 1
   fi
-  echo "apt auto update is disabled"
 }
 
 apt-setup-localrepo-debubuntu() {
@@ -314,8 +301,8 @@ apt-setup-localrepo-cenred() {
     return 0
   }
 
-  mkdir -p "${localrepodir}"
   localrepodir="${1}"
+  mkdir -p "${localrepodir}"
   count=0
   for value in "$@"; do
     ((count++))

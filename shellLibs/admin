@@ -34,15 +34,15 @@ function admin-user-add-to-sudo() {
 }
 
 function admin-user-add-to-group() {
-  local username=${1}
-  local groupname=${1}
-  [[ $1 == "-h" || -z $1 ]] && {
+  [[ $1 == "-h" || -z $1 || -z $2 ]] && {
     echo "Usage: sudo ${FUNCNAME[0]} user_name groups_name
            Note: This script need sudo permission to execute."
     return 0
   }
+  local username=${1}
+  local groupname=${2}
 
-  if sudo usermod -aG docker "${username}"; then
+  if sudo usermod -aG "${groupname}" "${username}"; then
     echo "Done add ${username} to ${groupname}"
   fi
 }
@@ -181,7 +181,7 @@ ssh-add ${1}
 "
 
   local token_path="$1"
-  [[ $(checkIfFileHaveText "ssh-add ${token_path}" '~/.bashrc') == "yes" ]] && {
+  [[ $(checkIfFileHaveText "ssh-add ${token_path}" "$HOME/.bashrc") == "yes" ]] && {
     echo "This token already added."
     return 0
   }
@@ -224,7 +224,7 @@ function admin-changeUserSession() {
 }
 
 function admin-disableSElinuxCentos() {
-  replaceStringInFile "SELINUX=enforcing" "SELINUX=permissive" /etc/selinux/config
+  sed -i "s|SELINUX=enforcing|SELINUX=permissive|g" /etc/selinux/config
   setenforce permissive
 }
 
@@ -264,18 +264,18 @@ function admin-kernelInstallSpecificVersion() {
     echo "Usage: sudo ${FUNCNAME[0]} <kerner-version>"
   }
   while true; do
-    read -p "Do you wish to remove current kernel $(uname -r) ? " yn
+    read -rp "Do you wish to remove current kernel $(uname -r) ? " yn
     case $yn in
     [Yy]*)
       [[ $(checkOsID) == *debian* || $(checkOsID) == *ubuntu* ]] && {
-        apt remove linux-iamge-"$(uname -r)"
+        apt remove linux-image-"$(uname -r)"
       }
       [[ $(checkOsID) == *centos* || $(checkOsID) == *redhat* ]] && {
-        yum remove linux-iamge-"$(uname -r)"
+        yum remove linux-image-"$(uname -r)"
       }
       break
       ;;
-    [Nn]*) exit ;;
+    [Nn]*) return 0 ;;
     *) echo "Please answer yes or no." ;;
     esac
   done
@@ -286,7 +286,7 @@ function admin-kernelInstallSpecificVersion() {
   [[ $(checkOsID) == *centos* || $(checkOsID) == *redhat* ]] && {
     yum install "$1"
   }
-  admin-updateRamdisk
+  admin-updateInitRamdisk
 }
 
 function admin-crontab-add() {

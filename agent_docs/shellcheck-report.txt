@@ -1,0 +1,62 @@
+
+In shellLibs/docker-utils line 148:
+  [[ -d ${newpath} ]] && {
+                      ^-- SC2015 (info): Note that A && B || C is not if-then-else. C may run when A is true.
+
+
+In shellLibs/docker-utils line 158:
+  [[ $(checkIfCommandExist nvidia-docker) == "yes" ]] && {
+                                                      ^-- SC2015 (info): Note that A && B || C is not if-then-else. C may run when A is true.
+
+
+In shellLibs/docker-utils line 314:
+  [[ -z ${dockerdhcp_ip_range} ]] && {
+                                  ^-- SC2015 (info): Note that A && B || C is not if-then-else. C may run when A is true.
+
+
+In shellLibs/docker-utils line 320:
+  [[ -z ${macvlan_mode} ]] && {
+                           ^-- SC2015 (info): Note that A && B || C is not if-then-else. C may run when A is true.
+
+
+In shellLibs/lpic1a line 25:
+  [ ! -e /etc/modprobe.d/"${module}".conf ] && {
+                                            ^-- SC2015 (info): Note that A && B || C is not if-then-else. C may run when A is true.
+
+
+In shellLibs/lpic1a line 28:
+    [[ $(checkIfFileHaveText "blacklist ${module}" "/etc/modprobe.d/${module}.conf") == "yes" ]] && {
+                                                                                                 ^-- SC2015 (info): Note that A && B || C is not if-then-else. C may run when A is true.
+
+
+In shellLibs/network-utils line 16:
+  [[ $(checkIfFileHaveText "${device}" /etc/network/interfaces) == "no" ]] && {
+                                                                           ^-- SC2015 (info): Note that A && B || C is not if-then-else. C may run when A is true.
+
+
+In shellLibs/network-utils line 53:
+  [[ $(checkIfFileHaveText "${device}" /etc/network/interfaces) == "no" ]] && {
+                                                                           ^-- SC2015 (info): Note that A && B || C is not if-then-else. C may run when A is true.
+
+
+In shellLibs/network-utils line 347:
+  [[ ${download_limit} == "clear" ]] && {
+                                     ^-- SC2015 (info): Note that A && B || C is not if-then-else. C may run when A is true.
+
+
+In shellLibs/nginxgen-utils line 111:
+  [[ -z ${WHITELISIPS} ]] && {
+                          ^-- SC2015 (info): Note that A && B || C is not if-then-else. C may run when A is true.
+
+
+In shellLibs/nvidia-utils line 95:
+    [[ -e "/usr/bin/nvidia-installer" ]] && {
+                                         ^-- SC2015 (info): Note that A && B || C is not if-then-else. C may run when A is true.
+
+
+In install.sh line 40:
+[[ $(checkIfFileHaveText "listSourceFiles" ~/.bashrc) == "yes" ]] && {
+                                                                  ^-- SC2015 (info): Note that A && B || C is not if-then-else. C may run when A is true.
+
+For more information:
+  https://www.shellcheck.net/wiki/SC2015 -- Note that A && B || C is not if-t...

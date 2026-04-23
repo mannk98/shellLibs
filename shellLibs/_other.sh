@@ -6,11 +6,12 @@ function listFilesInDir() {
     echo "Usage: sudo $FUNCNAME <path/to/dir>"
     return 0
   }
-  dirPath=${1}
-  files=()
-  for element in ${dirPath}/*; do
+  local dirPath=${1}
+  local files=()
+  local element
+  for element in "${dirPath}"/*; do
     [[ -f ${element} ]] && {
-      files+="${element} "
+      files+=("${element}")
     }
   done
   echo "${files[@]}"
@@ -22,11 +23,12 @@ function listDirInDir() {
     echo "Usage: sudo $FUNCNAME <path/to/dir>"
     return 0
   }
-  dirPath=${1}
-  dirs=()
-  for element in ${dirPath}/*; do
+  local dirPath=${1}
+  local dirs=()
+  local element
+  for element in "${dirPath}"/*; do
     [[ -d ${element} ]] && {
-      dirs+="${element} "
+      dirs+=("${element}")
     }
   done
   echo "${dirs[@]}"

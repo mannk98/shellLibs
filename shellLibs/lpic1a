@@ -1,12 +1,12 @@
 #!/bin/bash
 
-source $(which logshell)
-source $(which checksystem)
+source "$(which logshell)"
+source "$(which checksystem)"
 #source ./checksystem
 
 checkPcidev() {
   dev="${1}"
-  lscpi -s "${dev}" -v
+  lspci -s "${dev}" -v
 }
 
 # check base on devid
@@ -23,12 +23,12 @@ kmod_unload() {
 kmod_blacklist() {
   module="${1}"
   [ ! -e /etc/modprobe.d/"${module}".conf ] && {
-    echo "blacklist "${module}"" >/etc/modprobe.d/"${module}".conf
+    echo "blacklist ${module}" >/etc/modprobe.d/"${module}".conf
   } || {
     [[ $(checkIfFileHaveText "blacklist ${module}" "/etc/modprobe.d/${module}.conf") == "yes" ]] && {
       echo "Black list file for this module already exist"
     } || {
-      echo "blacklist "${module}"" >>/etc/modprobe.d/"${module}".conf
+      echo "blacklist ${module}" >>/etc/modprobe.d/"${module}".conf
     }
   }
 }
@@ -47,7 +47,7 @@ openConfigPowerFile() {
 }
 
 openSystemdServiceConfigDir() {
-  cd /lib/systemd/system
+  cd /lib/systemd/system || return 1
 }
 
 # need usb live, and alreaady mount /dev/sda1 to /mnt/tmp (for example is boot partitiion of disk need fix)

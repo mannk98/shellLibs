@@ -8,7 +8,6 @@ YELLOW="\033[0;33m"
 NC="\033[0m" # No Color
 
 function ssh_show_usage() {
-  local script_name="${BASH_SOURCE[0]##*/}"
   echo -e "${BOLD}SSH Utilities${NC}\n"
   echo -e "${BOLD}Port Forwarding:${NC}"
   echo -e "  ${GREEN}ssh-forward-local${NC}    - Forward local port to remote server"
@@ -149,7 +148,8 @@ function ssh-enable-root() {
   
   local action="${1:-enable}"
   local config_file="/etc/ssh/sshd_config"
-  local backup_file="${config_file}.bak.$(date +%Y%m%d%H%M%S)"
+  local backup_file
+  backup_file="${config_file}.bak.$(date +%Y%m%d%H%M%S)"
   
   if [[ ! -f "$config_file" ]]; then
     echo -e "${RED}Error: SSH config file not found at ${config_file}${NC}" >&2

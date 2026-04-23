@@ -1,18 +1,27 @@
 #!/bin/bash
 
-export publicIp=$(curl ifconfig.me 2>/dev/null)
-export nginxgenConName=$(docker ps --format "{{.Names}}" | grep "nginxgen")
+# Lazy getters — avoid running curl / docker ps at shell startup.
+# First call populates the cached global; subsequent calls are free.
+_nginxgen_ensure_con_name() {
+  [[ -n ${nginxgenConName:-} ]] || nginxgenConName=$(docker ps --format "{{.Names}}" | grep "nginxgen")
+}
+
+nginxgen-publicip() {
+  curl -s ifconfig.me
+}
 
 nginxgen-apihealthcheck() {
   curl localhost/status/bestatus
 }
 
 nginxgen-showconfig() {
+  _nginxgen_ensure_con_name
   docker cp "${nginxgenConName}":/etc/nginx/conf-http.d/docker-http.conf /tmp/nginx.conf
   nano -l /tmp/nginx.conf
 }
 
 nginxgen-showloggen() {
+  _nginxgen_ensure_con_name
   docker cp "${nginxgenConName}":/var/log/nginx/nginxgen.log /tmp/nginxgen.log
   tail -100 /tmp/nginxgen.log | jq
 }
@@ -26,6 +35,7 @@ nginxgen-gotoconfig() {
 }
 
 nginxgen-execbash() {
+  _nginxgen_ensure_con_name
   docker exec -it "${nginxgenConName}" bash
 }
 
@@ -42,7 +52,7 @@ nginxgen-json2csv() {
 }
 
 nginxgen-checkconfig() {
-  docker exec $(docker ps -f name=nginxgen -q) nginx -t
+  docker exec "$(docker ps -f name=nginxgen -q)" nginx -t
 }
 
 nginxgen-getlog() {

@@ -27,7 +27,7 @@ function checkIPPub() {
 }
 
 function checkIfRootSession() {
-  username="$(echo "$USER")"
+  username="$USER"
   [[ "${username}" == "root" ]] && {
     echo "yes"
     return 0

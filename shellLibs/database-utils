@@ -65,10 +65,9 @@ mysql -u "${MANNK_MYSQL_USER}" -h "${MANNK_MYSQL_HOST}" -p"${MANNK_MYSQL_PASS}" 
 EOF
   )
   echo "$command"
-  eval "$command"
-  [[ $? == 0 ]] && {
+  if eval "$command"; then
     echo "Successful created ${user} with password ${newpass} access from ${access_from}"
-  }
+  fi
 }
 
 function mysql-grantAllPrivilegesOnDB() {
@@ -90,10 +89,9 @@ function mysql-grantAllPrivilegesOnDB() {
 EOF
   )
   echo "${command}"
-  eval "${command}"
-  [[ $? == 0 ]] && {
+  if eval "${command}"; then
     echo "Successful"
-  }
+  fi
 }
 
 function mysql-grantUserPermissonOnDB() {
@@ -115,10 +113,9 @@ function mysql-grantUserPermissonOnDB() {
 EOF
   )
   echo "${command}"
-  eval "${command}"
-  [[ $? == 0 ]] && {
+  if eval "${command}"; then
     echo "Successful"
-  }
+  fi
 }
 
 function mysql-grantReadonlyOnDB() {
@@ -140,10 +137,9 @@ function mysql-grantReadonlyOnDB() {
 EOF
   )
   echo "${command}"
-  eval "${command}"
-  [[ $? == 0 ]] && {
+  if eval "${command}"; then
     echo "Successful"
-  }
+  fi
 }
 
 function mysql-grantRootPermisson() {
@@ -165,10 +161,9 @@ function mysql-grantRootPermisson() {
 EOF
   )
   echo "${command}"
-  eval "${command}"
-  [[ $? == 0 ]] && {
+  if eval "${command}"; then
     echo "Successful"
-  }
+  fi
 }
 
 function mysql-showUserPermisson() {

@@ -1,7 +1,7 @@
 #!/bin/bash
 
-source $(which checksystem)
-source $(which logshell)
+source "$(which checksystem)"
+source "$(which logshell)"
 
 # connect dhcp, with wpa_supplicant
 nwWifiConnect2AP_networkingService() {
@@ -15,19 +15,21 @@ nwWifiConnect2AP_networkingService() {
 
   [[ $(checkIfFileHaveText "${device}" /etc/network/interfaces) == "no" ]] && {
     log-info "write config to /etc/network/interfaces"
-    echo -e "
-allow-hotplug "${device}"
-iface "${device}" inet dhcp
-wpa-conf /etc/wpa_supplicant/"${device}".conf
-" >>/etc/network/interfaces
+    cat >>/etc/network/interfaces <<EOF
+
+allow-hotplug ${device}
+iface ${device} inet dhcp
+wpa-conf /etc/wpa_supplicant/${device}.conf
+EOF
   } || log-error "Error when write config to /etc/network/interfaces"
 
   [[ ! -f /etc/wpa_supplicant/"${device}".conf ]] && {
-    log-info "write config to /etc/wpa_supplicant/"${device}".conf"
-    echo -e "
+    log-info "write config to /etc/wpa_supplicant/${device}.conf"
+    cat >/etc/wpa_supplicant/"${device}".conf <<EOF
+
 update_config=1
 country=VN
-" >/etc/wpa_supplicant/"${device}".conf
+EOF
 
     wpa_passphrase "${ssid}" "${pass}" >>/etc/wpa_supplicant/"${device}".conf
   }
@@ -51,12 +53,13 @@ Only write config to /etc/network/interfaces"
   [[ $(checkIfFileHaveText "${device}" /etc/network/interfaces) == "no" ]] && {
     log-info "write config to /etc/network/interfaces"
 
-    echo -e "
-allow-hotplug "${device}"
-iface "${device}" inet dhcp
-        wpa-ssid \"${ssid}\"
-        wpa-psk \"${pass}\"
-" >>/etc/network/interfaces
+    cat >>/etc/network/interfaces <<EOF
+
+allow-hotplug ${device}
+iface ${device} inet dhcp
+        wpa-ssid "${ssid}"
+        wpa-psk "${pass}"
+EOF
   } || log-error "Error when write config to /etc/network/interfaces"
 
   log-info "Restart networking service..."
@@ -110,8 +113,11 @@ subnet 192.168.0.0 netmask 255.255.255.0 {
   echo -e "INTERFACESv4=\"${interface}\"
 INTERFACESv6=\"\"" >/etc/default/isc-dhcp-server
 
-  systemctl restart isc-dhcp-server
-  [[ $? != 0 ]] && log-error "Error when starting DHCP server" || log-step "Start DHCP server successfully. Gateway: 192.168.0.1, IP range:192.168.0.200 192.168.0.229;"
+  if ! systemctl restart isc-dhcp-server; then
+    log-error "Error when starting DHCP server"
+  else
+    log-step "Start DHCP server successfully. Gateway: 192.168.0.1, IP range:192.168.0.200 192.168.0.229;"
+  fi
 }
 
 ######################################
@@ -140,8 +146,9 @@ Only write config to /etc/network/interfaces"
   pass="${2}"
   interface="${3}"
 
-  nmcli dev wifi con "${ssid}" password "${pass}" ifname "${interface}"
-  [[ $? == 0 ]] && log-step "Success connect to "${ssid}" using "${interface}""
+  if nmcli dev wifi con "${ssid}" password "${pass}" ifname "${interface}"; then
+    log-step "Success connect to ${ssid} using ${interface}"
+  fi
 }
 
 nmcliDisableCon() {
@@ -178,7 +185,7 @@ Set static IP for interface."
   gateway="${2}"
   address="${3}"
 
-  nmcli con mod "${interface}" ipv4.method auto
+  nmcli con mod "${interface}" ipv4.method manual
   nmcli con mod "${interface}" ipv4.gateway "${gateway}"
   nmcli con mod "${interface}" ipv4.address "${address}"
   nmcli con down "${interface}"
@@ -203,7 +210,7 @@ nwIfaceGetIP() {
 Get IP of iface network."
     return 0
   }
-  ip addr show $1 | awk '/inet / {print $2}' | cut -d '/' -f 1
+  ip addr show "$1" | awk '/inet / {print $2}' | cut -d '/' -f 1
 }
 
 # rename
@@ -254,7 +261,7 @@ function nwSetupCentos7() {
   gateway=$4
   iface_uuid=$5
 
-  ifcfg="
+  cat >/etc/sysconfig/network-scripts/ifcfg-"${iface_name}" <<EOF
 TYPE="Ethernet"
 BOOTPROTO="static"
 IPADDR=${ip}
@@ -274,20 +281,18 @@ NAME="${iface_name}"
 UUID="${iface_uuid}"
 DEVICE="${iface_name}"
 ONBOOT="yes"
-  "
-  echo "${ifcfg}" >/etc/sysconfig/network-scripts/ifcfg-"${iface_name}"
+EOF
 
-  etc_sysconfig_network="
+  cat >/etc/sysconfig/network <<EOF
 NETWORKING=yes
 HOSTNAME=centos7
 GATEWAY=${gateway}
-"
-  echo "${etc_sysconfig_network}" >/etc/sysconfig/network
-  dns="
+EOF
+
+  cat >/etc/resolv.conf <<EOF
 nameserver 8.8.8.8
 nameserver 8.8.4.4
-"
-  echo "${dns}" >/etc/resolv.conf
+EOF
 }
 
 function nwIfaceFlush() {
@@ -316,10 +321,9 @@ nwBridgeListPortsOfBridge() {
     echo "Usage (run as root or sudo -s): $FUNCNAME <bridge_name>"
     return 0
   }
-  if command -v bridge &>/dev/null; then
-    #sudo apt install bridge-utils
+  if ! command -v bridge &>/dev/null; then
     echo "install bridge-utils first."
-    [[ $? ]] || return 1
+    return 1
   fi
   ip link show master "${1}"
 }
@@ -467,7 +471,7 @@ nwIaceGetIPmask() {
 Get IP mask of network iface."
     return 0
   }
-  bitMask=$(ip addr show $1 | awk '/inet / {print $2}' | cut -d '/' -f 2)
+  bitMask=$(ip addr show "$1" | awk '/inet / {print $2}' | cut -d '/' -f 2)
 
   local ones=$((0xFFFFFFFF << (32 - bitMask))) # Create mask with leftmost 'bitmask' number of bits set to 1
   # Extract each octet of the IP mask
@@ -492,10 +496,10 @@ Note: This script need sudo permission to execute."
   tmpDir=$(mktemp -d)
   cd "${tmpDir}" || exit 1
   sudo apt update
-  sudo apt install -y linux-headers-$(uname -r) build-essential bc dkms git libelf-dev rfkill iw hostapd
+  sudo apt install -y "linux-headers-$(uname -r)" build-essential bc dkms git libelf-dev rfkill iw hostapd
   mkdir -p src && cd src || exit 1
   git clone https://github.com/morrownr/8821au-20210708.git
-  cd src/8821au-20210708
+  cd src/8821au-20210708 || return 1
   sudo apt install gcc-12
   sudo ./install-driver.sh
 

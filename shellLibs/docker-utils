@@ -76,7 +76,7 @@ function docker-network-create-bridge-scopeSwarm() {
 #return subnet of MYNETWORK
 function docker-network-get-cidr() {
   [[ ! $1 || $1 == "-h" ]] && return 1
-  echo -n $(docker inspect -f '{{range $k, $v := .IPAM.Config}}{{printf $v.Subnet}}{{end}}' "${1}")
+  echo -n "$(docker inspect -f '{{range $k, $v := .IPAM.Config}}{{printf $v.Subnet}}{{end}}' "${1}")"
 }
 
 #check if container have network configuration
@@ -93,7 +93,7 @@ docker-find-container-from-hostpid() {
     return 1
   }
   hostpid=${1}
-  dnamespace=$(grep -e docker /proc/$hostpid/cgroup | head -n 1 | grep -ioEe '[^/]+$')
+  dnamespace=$(grep -e docker "/proc/${hostpid}/cgroup" | head -n 1 | grep -ioEe '[^/]+$')
 
   [[ $dnamespace ]] || {
     echo "Missing host pid - write by thanhson.rf@gmail.com"
@@ -110,7 +110,7 @@ docker-find-container-from-hostpid() {
     #  echo "Checking on ${container}:  $cnamespace - $dnamespace"
     echo "$cnamespace" | grep "$dnamespace" &>/dev/null && {
       echo "PID: $hostpid found in $container"
-      exit 0
+      return 0
     }
   done
   echo "Cannot found"
@@ -119,14 +119,14 @@ docker-find-container-from-hostpid() {
 # use to kill when container is blocked.
 docker-find-hostpid-from-containerName() {
   containername=${1}
-  ps auxw | grep "$(docker container ls | grep ${containername} | awk '{print $1}')" | awk '{print $2}'
+  ps auxw | grep "$(docker container ls | grep "${containername}" | awk '{print $1}')" | awk '{print $2}'
   #kill -9 12345678
 }
 
 docker-kill-container-by-hostpid() {
   containername=${1}
-  id=$(ps auxw | grep "$(docker container ls | grep ${containername} | awk '{print $1}')" | awk '{print $2}')
-  kill -9 ${id}
+  id=$(ps auxw | grep "$(docker container ls | grep "${containername}" | awk '{print $1}')" | awk '{print $2}')
+  kill -9 "${id}"
 }
 
 docker-change-rootdir() {
@@ -181,16 +181,19 @@ docker-change-rootdir() {
 
 docker-updateRestartRules() {
   [[ -n $(docker ps -q) ]] && {
+    # shellcheck disable=SC2046  # intentional: multi-container-ID word splitting
     docker update --restart=always $(docker ps -q)
   }
 
   [[ -n $(docker ps --filter status=exited -q) ]] && {
+    # shellcheck disable=SC2046  # intentional: multi-container-ID word splitting
     docker update --restart=no $(docker ps --filter status=exited -q)
   }
   echo "Have a good day <3"
 }
 
 docker-mapOverlay2-withImage() {
+  # shellcheck disable=SC2046  # intentional: multi-container-ID word splitting
   docker inspect $(docker ps -qa) | jq -r 'map([.Name, .GraphDriver.Data.MergedDir]) | .[] | @tsv' | while IFS=$'\t' read -r name dir; do size=$(du -sh "$dir" | awk '{print $1}'); echo -e "$name\t$dir\t$size"; done
 }
 
@@ -206,10 +209,9 @@ docker-updateLimitResource() {
   ram=${3}
   ramAndSwap=${4}
 
-  docker update --cpus "${cpus}" -m "${ram}" --memory-swap "${ramAndSwap}" "${conname}"
-  [[ $? == 0 ]] && {
+  if docker update --cpus "${cpus}" -m "${ram}" --memory-swap "${ramAndSwap}" "${conname}"; then
     echo "Success update container metrics resource. Have a good day!"
-  }
+  fi
 }
 
 ######################## GET INFO
@@ -234,6 +236,7 @@ docker-getBindInfo() {
 }
 
 function docker-getIPAll() {
+  # shellcheck disable=SC2046  # intentional: multi-container-ID word splitting
   docker inspect -f '{{.Name}} - {{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $(docker ps -q)
 }
 
@@ -272,8 +275,8 @@ function docker-save-image() {
     echo "Usage: ${FUNCNAME[0]} <uuid_image/image_name:tag> [name_of_file.tar.gz]"
     return 0
   }
-  : "{${2}:=myimage_latest.tar.gz}"
-  docker save "${1}" | gzip >"${2}"
+  local outfile="${2:-myimage_latest.tar.gz}"
+  docker save "${1}" | gzip >"${outfile}"
 }
 
 # not commit what you mount
@@ -411,5 +414,5 @@ function docker-swarm-removeService() {
     return 0
   }
   service_name=${1}
-  docker service rm "${scale_number}"
+  docker service rm "${service_name}"
 }
