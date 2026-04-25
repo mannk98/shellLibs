@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo is
 
-A personal collection of Bash utility libraries organized by domain (docker, network, admin, database, nvidia, etc.). Each file under `shellLibs/` exposes a family of functions that are sourced into an interactive bash shell — there is no build system, no tests, and no lint. Work is done by editing the scripts and re-running `install.sh`.
+A personal collection of Bash utility libraries organized by domain (docker, network, admin, database, nvidia, etc.). Each file under `scripts/` exposes a family of functions that are sourced into an interactive bash shell — there is no build system, no tests, and no lint. Work is done by editing the scripts and re-running `install.sh`.
 
 ## Install / update workflow
 
@@ -13,7 +13,7 @@ sudo ./install.sh
 ```
 
 The installer (`install.sh`) does two things:
-1. **As root**: wipes `/bin/shellLibs`, copies the whole `shellLibs/` directory there, and makes each file executable.
+1. **As root**: wipes `/bin/shellLibs`, copies the whole `scripts/` directory there, and makes each file executable.
 2. **As any user**: appends a managed block to the calling user's `~/.bashrc` that adds `/bin/shellLibs` to `PATH` and `source`s every file in the directory. Under `sudo`, the target is resolved from `$SUDO_USER` via `getent passwd`, so the block lands in the invoking user's bashrc (not `/root/.bashrc`). Non-root runs skip step 1 and target `$HOME/.bashrc` directly — the files must already exist in `/bin/shellLibs`.
 
 The managed block is wrapped in unique markers:

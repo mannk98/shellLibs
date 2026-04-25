@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-SOURCES := $(wildcard shellLibs/*) install.sh
+SOURCES := $(wildcard scripts/*) install.sh
 SHELLCHECK_FLAGS := --shell=bash --severity=style
 REPORT := agent_docs/shellcheck-report.txt
 
@@ -8,7 +8,7 @@ REPORT := agent_docs/shellcheck-report.txt
 
 help:
 	@echo "Targets:"
-	@echo "  lint          Run shellcheck on shellLibs/* and install.sh"
+	@echo "  lint          Run shellcheck on scripts/* and install.sh"
 	@echo "  lint-report   Run shellcheck and save full output to $(REPORT)"
 	@echo "  lint-install  Install shellcheck via apt (needs sudo)"
 

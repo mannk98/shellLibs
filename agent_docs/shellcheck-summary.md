@@ -1,7 +1,7 @@
 # shellcheck findings — summary
 
 **Tool:** shellcheck 0.9.0
-**Run:** `make lint` (= `shellcheck --shell=bash --severity=style shellLibs/* install.sh`, with `.shellcheckrc` disables for non-actionable codes)
+**Run:** `make lint` (= `shellcheck --shell=bash --severity=style scripts/* install.sh`, with `.shellcheckrc` disables for non-actionable codes)
 **Saved report:** [`shellcheck-report.txt`](./shellcheck-report.txt) — regenerate with `make lint-report`
 
 ## Progress

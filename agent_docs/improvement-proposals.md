@@ -32,8 +32,8 @@ Remaining:
 
 Applied fix:
 
-- `shellLibs/nginxgen-utils` — removed `export publicIp=$(curl ifconfig.me …)` at top level. `publicIp` was never read by any script, so replaced with `nginxgen-publicip` (a function the user calls explicitly when they want their public IP). Removed `export nginxgenConName=$(docker ps …)` and replaced with a lazy ensurer `_nginxgen_ensure_con_name`, called at the top of each of the three functions that read `${nginxgenConName}`.
-- `shellLibs/apt-utils.sh` — removed top-level `export oscheck; oscheck="$(checkOsID)"`. Added a lazy ensurer `_apt_oscheck` that populates `$oscheck` on first call, and inserted a `_apt_oscheck` line at the top of all 13 functions that read `${oscheck}`.
+- `scripts/nginxgen-utils` — removed `export publicIp=$(curl ifconfig.me …)` at top level. `publicIp` was never read by any script, so replaced with `nginxgen-publicip` (a function the user calls explicitly when they want their public IP). Removed `export nginxgenConName=$(docker ps …)` and replaced with a lazy ensurer `_nginxgen_ensure_con_name`, called at the top of each of the three functions that read `${nginxgenConName}`.
+- `scripts/apt-utils.sh` — removed top-level `export oscheck; oscheck="$(checkOsID)"`. Added a lazy ensurer `_apt_oscheck` that populates `$oscheck` on first call, and inserted a `_apt_oscheck` line at the top of all 13 functions that read `${oscheck}`.
 
 Smoke test: after `source apt-utils.sh`, `$oscheck` is unset; after the first `apt-*` call, it holds the cached OS ID. Same for `$nginxgenConName` after `source nginxgen-utils` vs after first `nginxgen-*` call.
 
