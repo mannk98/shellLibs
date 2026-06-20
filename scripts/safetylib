@@ -34,4 +34,22 @@ _backup_file() {
   return 0
 }
 
-export -f _run _backup_file
+# Append one line to a file, idempotently (whole-line match), backing up first.
+_append_line() {
+  local file="$1" line="$2"
+  [[ -z $file || -z $2 ]] && { log-error "Usage: _append_line <file> <line>"; return 2; }
+  if [[ -e $file ]] && grep -qxF -- "$line" "$file"; then
+    log-info "_append_line: already in ${file}, skipping"
+    return 0
+  fi
+  if [[ -n ${SHELLLIBS_DRYRUN:-} ]]; then
+    log-run "DRY-RUN would append to ${file}: ${line}"
+    return 0
+  fi
+  _backup_file "$file"
+  printf '%s\n' "$line" >>"$file" || { log-error "_append_line: write failed for ${file}"; return 1; }
+  log-info "appended to ${file}: ${line}"
+  return 0
+}
+
+export -f _run _backup_file _append_line

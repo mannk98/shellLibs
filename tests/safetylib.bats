@@ -76,3 +76,44 @@ setup() {
   local baks=( "${f}".bak.* )
   [ "${#baks[@]}" -eq 1 ]
 }
+
+# --- _append_line ---
+
+@test "_append_line appends a line when absent" {
+  local f="${BATS_TEST_TMPDIR}/fstab"
+  printf 'existing\n' > "$f"
+  run _append_line "$f" "newline"
+  [ "$status" -eq 0 ]
+  grep -qxF "newline" "$f"
+}
+
+@test "_append_line is idempotent (no duplicate on second call)" {
+  local f="${BATS_TEST_TMPDIR}/fstab"
+  printf 'existing\n' > "$f"
+  _append_line "$f" "dup"
+  _append_line "$f" "dup"
+  run grep -cxF "dup" "$f"
+  [ "$output" -eq 1 ]
+}
+
+@test "_append_line in dry-run does not modify the file" {
+  local f="${BATS_TEST_TMPDIR}/fstab"
+  printf 'existing\n' > "$f"
+  SHELLLIBS_DRYRUN=1 run _append_line "$f" "nope"
+  [ "$status" -eq 0 ]
+  run grep -qxF "nope" "$f"
+  [ "$status" -ne 0 ]
+}
+
+@test "_append_line backs up the file before appending" {
+  local f="${BATS_TEST_TMPDIR}/fstab"
+  printf 'existing\n' > "$f"
+  _append_line "$f" "added"
+  local baks=( "${f}".bak.* )
+  [ "${#baks[@]}" -eq 1 ]
+}
+
+@test "_append_line with missing args returns 2" {
+  run _append_line "${BATS_TEST_TMPDIR}/x"
+  [ "$status" -eq 2 ]
+}
