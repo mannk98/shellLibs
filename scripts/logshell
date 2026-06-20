@@ -27,9 +27,22 @@ LOG_LEVEL_STEP=5
 
 # Internal function to get timestamp
 _get_timestamp() {
-  local stamp
-  stamp="$(date +"%F %T,%3N")"
-  printf '%s' "${stamp}"
+  # The millisecond field `%3N` is a GNU coreutils extension. Note macOS/BSD `date`
+  # supports plain `%N` but NOT the `%3N` width form — it leaks a literal "3N" into
+  # the line — so we must probe the exact `%3N` form, not `%N`. Probe once (cached in
+  # _LOGSHELL_HAS_NANOS for the rest of the shell): GNU yields three digits, anything
+  # else means fall back to whole-second precision.
+  if [[ -z ${_LOGSHELL_HAS_NANOS:-} ]]; then
+    case "$(date +%3N 2>/dev/null)" in
+    [0-9][0-9][0-9]) _LOGSHELL_HAS_NANOS=yes ;;
+    *) _LOGSHELL_HAS_NANOS=no ;;
+    esac
+  fi
+  if [[ ${_LOGSHELL_HAS_NANOS} == yes ]]; then
+    date +"%F %T,%3N"
+  else
+    date +"%F %T"
+  fi
 }
 
 # Internal logging function
