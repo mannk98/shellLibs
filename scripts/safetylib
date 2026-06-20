@@ -1,0 +1,21 @@
+#!/bin/bash
+# safetylib — dry-run-aware command execution + safe file edits.
+# Foundation peer to logshell/checksystem. Set SHELLLIBS_DRYRUN=1 to preview.
+#
+# No side effects at source time. Helpers never `exit` (sourced file) — only `return`.
+
+# Load logshell once, whether installed (on PATH) or run from the repo/tests (sibling).
+command -v log-run >/dev/null 2>&1 || source "$(command -v logshell 2>/dev/null || echo "$(dirname "${BASH_SOURCE[0]}")/logshell")"
+
+# Run a command (argv — no eval). Returns the command's own exit status.
+_run() {
+  [[ $# -eq 0 ]] && { log-error "_run: no command given"; return 2; }
+  if [[ -n ${SHELLLIBS_DRYRUN:-} ]]; then
+    log-run "DRY-RUN would run: $(printf '%q ' "$@")"
+    return 0
+  fi
+  log-run "$(printf '%q ' "$@")"
+  "$@"
+}
+
+export -f _run
