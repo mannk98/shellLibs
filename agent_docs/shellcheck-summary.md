@@ -1,6 +1,6 @@
 # shellcheck findings — summary
 
-**Tool:** shellcheck 0.9.0
+**Tool:** shellcheck 0.11.0 (latest re-run; baseline buckets below were measured on 0.9.0)
 **Run:** `make lint` (= `shellcheck --shell=bash --severity=style scripts/* install.sh`, with `.shellcheckrc` disables for non-actionable codes)
 **Saved report:** [`shellcheck-report.txt`](./shellcheck-report.txt) — regenerate with `make lint-report`
 
@@ -14,8 +14,9 @@
 | After Bucket C (cosmetic silence + remaining fixes) | 14 | −24 |
 | After §2 (source-time side effects) | 12 | −2 |
 | After §5 (installer hardening — two footguns) | **11** | −1 |
+| After §10/§11 (logger stderr + timestamp + path sync), re-run on 0.11.0 | **11** | 0 |
 
-All 11 remaining findings are `A && B || C` pseudo-if patterns tracked under §9 of `improvement-proposals.md`. Zero errors.
+All 11 remaining findings are `A && B || C` pseudo-if patterns tracked under §9 of `improvement-proposals.md`. Zero errors. The §10 `log-error`→stderr / portable-timestamp edits and the §11 `/bin/scripts` path sync introduced no new findings.
 
 ## Remaining (11)
 

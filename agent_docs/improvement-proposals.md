@@ -122,9 +122,9 @@ Side effect: `install.sh` dropped its last shellcheck finding (SC2015 on line 39
 
 Still open (not named in the "two footguns" request; leaving for later):
 
-- **Install path** — still `/bin/shellLibs`. `/bin` is reserved for OS packages; `/usr/local/bin/shellLibs` or `/opt/shellLibs` would be more conventional. Changing this touches existing installs, so defer until there's a reason.
-- **No uninstall script** — now trivial to write given the marker-based block (same `sed` range-delete + `rm -rf /bin/shellLibs`). Good next task if you want to finish §5.
-- **`rm -rf /bin/shellLibs` unguarded** — a typo here is catastrophic as root. Cheap guard: `[[ -d /bin/shellLibs ]] && rm -rf /bin/shellLibs`, or hoist the path into a variable that's validated first.
+- **Install path** — now `/bin/scripts` (renamed from `/bin/shellLibs` in the scripts/ rename; all stale doc/code references have been synced — see §11). Still under `/bin`, which is reserved for OS packages; `/usr/local/bin/shellLibs` or `/opt/shellLibs` would be more conventional. Changing this touches existing installs, so defer until there's a reason.
+- **No uninstall script** — uninstall *instructions* now live in the README (marker-based `sed` range-delete + `rm -rf /bin/scripts`); a dedicated `make uninstall` / `uninstall.sh` is still unwritten.
+- **`rm -rf /bin/scripts` unguarded** — a typo here is catastrophic as root. Cheap guard: `[[ -d /bin/scripts ]] && rm -rf /bin/scripts`, or hoist the path into a variable that's validated first.
 
 ---
 
@@ -151,13 +151,19 @@ If we do this, do it alongside the lazy-load work (§3) since both touch user-fa
 
 ---
 
-## 8. Minimal test harness (bats)
+## 8. Minimal test harness (bats)  ✅ starter shipped
 
-**Effort:** M — **Risk:** none — **Value:** medium (guard against regressions in cross-distro branching)
+**Effort:** M — **Risk:** none — **Value:** medium — **Status:** starter suite done; broader coverage + CI open
 
-Pure-bash functions that don't touch the system (string helpers, OS detection, arg parsing) can be unit-tested with [`bats-core`](https://github.com/bats-core/bats-core). System-touching functions (docker, network, apt) would need containerized integration tests, which is more work.
+Done:
+- `tests/` bats suite + `tests/test_helper.bash`, run via `make test` (and `make test-install` to get bats — brew/apt/npm auto-detected). `.bats` files are kept out of `make lint` (not valid standalone bash).
+- `tests/logshell.bats` — message tagging, `LOG_LEVEL` gating, `log-error`→stderr, and a deterministic portable-timestamp regression (mocks GNU vs BSD/macOS `date`).
+- `tests/checksystem.bats` — `checkIfCommandExist`, `checkIfFileHaveText`, `checkIfRootSession`, `checkIfUserExist`, `checkOsID`/`checkOsVersionID`. Demonstrates three reusable techniques: pure assertions, env override, command mocking.
+- 24 tests, green on bash 3.2 (macOS) and bash 5 (Linux). See `tests/README.md`.
 
-**Concrete first cut:** tests for `checksystem` predicates (`checkIfCommandExist`, `checkIfFileHaveText`, `checkIfUserExist`) and `logshell` level-gating. Small surface, high-value because everything else depends on them.
+Open:
+- System-touching modules (docker/network/apt) still need container-based integration tests.
+- No CI wiring yet (e.g. GitHub Actions running `make lint` + `make test`).
 
 ---
 
@@ -165,15 +171,14 @@ Pure-bash functions that don't touch the system (string helpers, OS detection, a
 
 **Effort:** S — **Risk:** low (per-site reasoning) — **Value:** low-medium
 
-12 sites still flag SC2015. The pattern is load-bearing throughout this repo (used as `if [[ cond ]]; then X; else Y; fi`), and most of the remaining occurrences are safe *in practice*: the `B` branch is either a single command that can't fail, or the author accepted the "C also runs if B fails" behavior.
+11 sites still flag SC2015. The pattern is load-bearing throughout this repo (used as `if [[ cond ]]; then X; else Y; fi`), and most of the remaining occurrences are safe *in practice*: the `B` branch is either a single command that can't fail, or the author accepted the "C also runs if B fails" behavior.
 
-The 12 sites (from `make lint`):
-- `install.sh:39` — `[[ have listSourceFiles ]] && { log already } || { append; log done }`
+The 11 sites (from `make lint`, shellcheck 0.11.0):
 - `docker-utils:148, 158, 314, 320` — config-dir / runtime-detection branches
 - `lpic1a:25, 28` — blacklist-file creation
-- `network-utils:16, 53, 348` — config-file write branches
+- `network-utils:16, 53, 347` — config-file write branches
 - `nvidia-utils:95` — nvidia-installer detection
-- `nginxgen-utils:101` — whitelist-IP default
+- `nginxgen-utils:111` — whitelist-IP default
 
 **What to do:** walk each one. If `B` is a single `echo`/`log-*`/assignment that effectively can't fail, leave it (optionally add `# shellcheck disable=SC2015`). If `B` is a multi-line `{ ... }` block where a failure inside would wrongly trigger `C`, rewrite to `if/then/else`. Expect most to be safe and 1–2 genuine footguns.
 
@@ -181,11 +186,32 @@ Low urgency — none of these are known-broken today.
 
 ---
 
+## 10. Logger correctness (logshell)  ✅ done
+
+**Effort:** S — **Risk:** low — **Value:** medium — **Status:** applied
+
+- **`log-error` → stderr.** `log-error` now redirects the console line to stderr (`_log ... >&2`) so errors don't pollute a function's stdout when its output is captured or piped. The `LOG_FILE` append inside `_log` keeps its own redirect, so file logging is unchanged. Regression: `tests/logshell.bats` "log-error writes to stderr, not stdout" (uses `run --separate-stderr`).
+- **Portable millisecond timestamp.** `_get_timestamp` used `date +"%F %T,%3N"`. `%3N` is GNU-only; macOS/BSD `date` supports plain `%N` but NOT the `%3N` width form, so it leaked a literal `,3N` into every line (and the LOG_FILE). Fix: probe the exact `%3N` form once (cached in `_LOGSHELL_HAS_NANOS`) — three digits → GNU, keep millis; otherwise fall back to `%F %T` (second precision). Regression: two deterministic tests mock GNU vs BSD/macOS `date`.
+
+---
+
+## 11. Doc / install-path drift sync  ✅ done
+
+**Effort:** S — **Risk:** none — **Value:** low (correctness) — **Status:** applied
+
+The `scripts/` rename moved the install target to `/bin/scripts`, but several references still said the old `/bin/shellLibs`. Synced all of them:
+- `scripts/cloudstack-utils:17` — `source /bin/shellLibs/cloudstack-utils` → `/bin/scripts/...` (this one was a real runtime bug on the remote `cloudstackServer`).
+- `CLAUDE.md` (4 refs) and the `.shellcheckrc` header comment.
+- `README.md` — rewritten to document `/bin/scripts` as the real path.
+
+---
+
 ## My suggested order
 
 1. **§1 shellcheck + §4 bug fixes + Buckets B/C** ✅ done.
 2. **§2 source-time side effects** ✅ done.
-3. **§5 installer hardening — two footguns** ✅ done (install path, uninstall script, and `rm -rf` guard still open as smaller follow-ups).
-4. Then choose between §3 (lazy-load) and §7 (security) depending on whether the pain point is shell startup time or the sudoers/mysql patterns.
+3. **§5 installer hardening — two footguns** ✅ done (install path now `/bin/scripts`; uninstall script and `rm -rf` guard still open as smaller follow-ups).
+4. **§8 bats starter + §10 logger fixes + §11 path sync** ✅ done.
+5. Then choose between §3 (lazy-load) and §7 (security) depending on whether the pain point is shell startup time or the sudoers/mysql patterns.
 
-§6, §8, §9 are polish — do when the rest is stable.
+§6 and §9 are polish — do when the rest is stable.
