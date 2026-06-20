@@ -1,7 +1,8 @@
 #!/bin/bash
 
-source "$(which logshell)"
-source "$(which checksystem)"
+command -v log-run   >/dev/null 2>&1 || source "$(command -v logshell    2>/dev/null || echo "$(dirname "${BASH_SOURCE[0]}")/logshell")"
+command -v checkOsID >/dev/null 2>&1 || source "$(command -v checksystem 2>/dev/null || echo "$(dirname "${BASH_SOURCE[0]}")/checksystem")"
+command -v _run      >/dev/null 2>&1 || source "$(command -v safetylib   2>/dev/null || echo "$(dirname "${BASH_SOURCE[0]}")/safetylib")"
 
 function admin-timezone-set-GMT0() {
   sudo timedatectl set-timezone UTC
@@ -24,13 +25,12 @@ function admin-user-add-to-sudo() {
     return 0
   }
 
-  apt install sudo &>/dev/null
-  if ! usermod -aG sudo "${username}"; then
+  _run apt install sudo &>/dev/null
+  if ! _run usermod -aG sudo "${username}"; then
     echo "This script need sudo permission to execute."
   fi
-  if echo "${username} ALL=(ALL:ALL) NOPASSWD:ALL" >>/etc/sudoers; then
-    echo "Done add user to sudo group and enable sudo without password."
-  fi
+  _append_line /etc/sudoers "${username} ALL=(ALL:ALL) NOPASSWD:ALL" \
+    && echo "Done add user to sudo group and enable sudo without password."
 }
 
 function admin-user-add-to-group() {
@@ -92,11 +92,11 @@ function admin-swap-enable() {
 
   echo "List swapfile on this system:"
   swapon --show
-  fallocate -l "${sizeSwap}" "${pathSwap}"
-  chmod 600 "${pathSwap}"
-  mkswap "${pathSwap}"
-  swapon "${pathSwap}"
-  echo "${pathSwap} none swap sw 0 0" | sudo tee -a /etc/fstab
+  _run fallocate -l "${sizeSwap}" "${pathSwap}"
+  _run chmod 600 "${pathSwap}"
+  _run mkswap "${pathSwap}"
+  _run swapon "${pathSwap}"
+  _append_line /etc/fstab "${pathSwap} none swap sw 0 0"
 
   echo "Done create swapfile ${sizeSwap} at ${pathSwap}"
 }
