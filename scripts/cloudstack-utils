@@ -14,7 +14,7 @@ cloudstack-sshjump() {
 
   local TARGET_IP="$1"
 
-  ssh -tt cloudstackServer "bash -c 'source /bin/shellLibs/cloudstack-utils && cloudssh ${TARGET_IP}'"
+  ssh -tt cloudstackServer "bash -c 'source /bin/scripts/cloudstack-utils && cloudssh ${TARGET_IP}'"
 }
 
 function cloudstack-genNginxConfig() {

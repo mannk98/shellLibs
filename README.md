@@ -215,11 +215,10 @@ concrete first cut.
 
 ## Caveats / known rough edges
 
-- **Install path drift.** `install.sh` installs to `/bin/scripts`, but a few places still
-  say the old `/bin/shellLibs` (this README's predecessor, `CLAUDE.md`, the `.shellcheckrc`
-  comment, and `cloudstack-utils:17`'s remote `source` line). The functioning install path
-  is **`/bin/scripts`**. `/bin` itself is unconventional — `/usr/local/bin` or `/opt` would
-  be cleaner, but that's a deliberate "later" item.
+- **Install path.** The install path is **`/bin/scripts`** (all docs and the
+  `cloudstack-utils` remote `source` line are synced to it). `/bin` itself is unconventional
+  — `/usr/local/bin` or `/opt` would be cleaner, but moving it touches existing installs, so
+  that's a deliberate "later" item.
 - **Destructive ops are unguarded.** Functions that write to `/etc/fstab`, `/etc/sudoers`,
   `/etc/network/interfaces`, or run `rm -rf` assume you know what you're doing and mostly
   don't back up or check for idempotency. Read a function (`<fn> -h`, or open the file)

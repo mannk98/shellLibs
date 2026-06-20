@@ -13,8 +13,8 @@ sudo ./install.sh
 ```
 
 The installer (`install.sh`) does two things:
-1. **As root**: wipes `/bin/shellLibs`, copies the whole `scripts/` directory there, and makes each file executable.
-2. **As any user**: appends a managed block to the calling user's `~/.bashrc` that adds `/bin/shellLibs` to `PATH` and `source`s every file in the directory. Under `sudo`, the target is resolved from `$SUDO_USER` via `getent passwd`, so the block lands in the invoking user's bashrc (not `/root/.bashrc`). Non-root runs skip step 1 and target `$HOME/.bashrc` directly — the files must already exist in `/bin/shellLibs`.
+1. **As root**: wipes `/bin/scripts`, copies the whole `scripts/` directory there, and makes each file executable.
+2. **As any user**: appends a managed block to the calling user's `~/.bashrc` that adds `/bin/scripts` to `PATH` and `source`s every file in the directory. Under `sudo`, the target is resolved from `$SUDO_USER` via `getent passwd`, so the block lands in the invoking user's bashrc (not `/root/.bashrc`). Non-root runs skip step 1 and target `$HOME/.bashrc` directly — the files must already exist in `/bin/scripts`.
 
 The managed block is wrapped in unique markers:
 ```
@@ -24,7 +24,7 @@ The managed block is wrapped in unique markers:
 ```
 Re-installs are idempotent: `sed -i '/begin/,/end/d'` removes the old block before appending the fresh one, so running `install.sh` repeatedly never accumulates duplicates.
 
-After editing a script, re-run `install.sh` (or re-copy the file to `/bin/shellLibs/`) for a new shell to pick it up. Scripts source each other by PATH lookup (`source "$(which logshell)"`), not by relative path — so a file only works after it's been installed.
+After editing a script, re-run `install.sh` (or re-copy the file to `/bin/scripts/`) for a new shell to pick it up. Scripts source each other by PATH lookup (`source "$(which logshell)"`), not by relative path — so a file only works after it's been installed.
 
 ## Architecture
 
@@ -85,5 +85,5 @@ Most functions assume root or sudo; some (docker, nmcli, iptables, systemctl, fs
 
 - **No test harness.** The only way to validate changes is to re-install and exercise the function in a live shell on a matching distro. Don't assume a change works without doing that. A shellcheck lint gate (`make lint`) exists and catches the big quoting/arity classes.
 - **`source "$(which X)"` fails before install.** If you split a new helper out of an existing file, you must run `install.sh` before sourcing it from a sibling.
-- **No top-level side effects at source time.** Don't add `cmd` / `$(cmd)` / `export X=$(cmd)` at the top of a file. Every new shell sources all files in `/bin/shellLibs` — any top-level command runs on every login. Use a lazy ensurer pattern like `_apt_oscheck` in `apt-utils.sh` or `_nginxgen_ensure_con_name` in `nginxgen-utils`: a private helper that populates a cached global on first use, called at the top of each function that needs it.
+- **No top-level side effects at source time.** Don't add `cmd` / `$(cmd)` / `export X=$(cmd)` at the top of a file. Every new shell sources all files in `/bin/scripts` — any top-level command runs on every login. Use a lazy ensurer pattern like `_apt_oscheck` in `apt-utils.sh` or `_nginxgen_ensure_con_name` in `nginxgen-utils`: a private helper that populates a cached global on first use, called at the top of each function that needs it.
 - **`_other.sh` and `apt-utils.sh` / `golang-utils.sh` end in `.sh`**, the rest don't. The installer `source`s every file regardless, but if you rename an existing file you'll break any caller that does `source "$(which old-name)"`.

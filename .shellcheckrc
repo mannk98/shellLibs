@@ -1,4 +1,4 @@
-# Files are installed to /bin/shellLibs and sourced via `source "$(which <name>)"`.
+# Files are installed to /bin/scripts and sourced via `source "$(which <name>)"`.
 # shellcheck can't statically resolve that path, so SC1090 fires on every source line.
 # Silencing it globally is intentional; the dynamic source pattern is load-bearing.
 disable=SC1090
