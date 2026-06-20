@@ -78,7 +78,10 @@ log-warning() {
 }
 
 log-error() {
-  ((LOG_LEVEL <= LOG_LEVEL_ERROR)) && _log "$LOG_LEVEL_ERROR" "$COLOR_RED" "err" "$@"
+  # Errors go to stderr (>&2) so they don't pollute a function's stdout when its
+  # output is captured/piped. The LOG_FILE append inside _log keeps its own redirect,
+  # so file logging is unaffected.
+  ((LOG_LEVEL <= LOG_LEVEL_ERROR)) && _log "$LOG_LEVEL_ERROR" "$COLOR_RED" "err" "$@" >&2
 }
 
 log-run() {

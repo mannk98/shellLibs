@@ -6,6 +6,8 @@
 # timestamp (its format differs between Linux `date` and macOS `date`) and
 # match on the level tag + the message instead.
 
+bats_require_minimum_version 1.5.0   # for `run --separate-stderr`
+
 setup() {
   load test_helper
   source "${SHELLLIBS_ROOT}/scripts/logshell"
@@ -30,6 +32,15 @@ setup() {
   [ "$status" -eq 0 ]
   [[ "$output" == *"[err]"* ]]
   [[ "$output" == *"boom"* ]]
+}
+
+@test "log-error writes to stderr, not stdout" {
+  # Errors must go to stderr so they don't pollute captured/piped stdout.
+  # --separate-stderr puts stdout in $output and stderr in $stderr.
+  run --separate-stderr log-error "boom"
+  [ -z "$output" ]
+  [[ "$stderr" == *"[err]"* ]]
+  [[ "$stderr" == *"boom"* ]]
 }
 
 @test "LOG_LEVEL gating: at WARNING level, log-debug is silent" {
