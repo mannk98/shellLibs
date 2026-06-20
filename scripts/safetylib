@@ -18,4 +18,20 @@ _run() {
   "$@"
 }
 
-export -f _run
+# Back up <file> -> <file>.bak.<timestamp> (portable timestamp, no %N). No-op if absent.
+_backup_file() {
+  local f="$1"
+  [[ -z $f ]] && { log-error "_backup_file: no file given"; return 2; }
+  [[ -e $f ]] || return 0
+  local bak
+  bak="${f}.bak.$(date +%Y%m%d%H%M%S)"
+  if [[ -n ${SHELLLIBS_DRYRUN:-} ]]; then
+    log-run "DRY-RUN would back up ${f} -> ${bak}"
+    return 0
+  fi
+  cp -p "$f" "$bak" || { log-error "_backup_file: cp failed for ${f}"; return 1; }
+  log-info "backed up ${f} -> ${bak}"
+  return 0
+}
+
+export -f _run _backup_file

@@ -34,3 +34,45 @@ setup() {
   run _run
   [ "$status" -eq 2 ]
 }
+
+# --- _backup_file ---
+
+@test "_backup_file copies an existing file to a timestamped backup" {
+  local f="${BATS_TEST_TMPDIR}/conf"
+  printf 'original\n' > "$f"
+  run _backup_file "$f"
+  [ "$status" -eq 0 ]
+  local baks=( "${f}".bak.* )
+  [ "${#baks[@]}" -eq 1 ]
+  [ "$(cat "${baks[0]}")" = "original" ]
+}
+
+@test "_backup_file is a no-op when the file does not exist" {
+  run _backup_file "${BATS_TEST_TMPDIR}/absent"
+  [ "$status" -eq 0 ]
+  local baks=( "${BATS_TEST_TMPDIR}/absent".bak.* )
+  [ ! -e "${baks[0]}" ]
+}
+
+@test "_backup_file in dry-run does not create a backup" {
+  local f="${BATS_TEST_TMPDIR}/conf"
+  printf 'x\n' > "$f"
+  SHELLLIBS_DRYRUN=1 run _backup_file "$f"
+  [ "$status" -eq 0 ]
+  local baks=( "${f}".bak.* )
+  [ ! -e "${baks[0]}" ]
+}
+
+@test "_backup_file with no argument returns 2" {
+  run _backup_file
+  [ "$status" -eq 2 ]
+}
+
+@test "_backup_file returns 0 and still backs up when LOG_LEVEL silences info" {
+  local f="${BATS_TEST_TMPDIR}/conf"
+  printf 'original\n' > "$f"
+  LOG_LEVEL=2 run _backup_file "$f"
+  [ "$status" -eq 0 ]
+  local baks=( "${f}".bak.* )
+  [ "${#baks[@]}" -eq 1 ]
+}
