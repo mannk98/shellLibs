@@ -117,3 +117,35 @@ setup() {
   run _append_line "${BATS_TEST_TMPDIR}/x"
   [ "$status" -eq 2 ]
 }
+
+# --- _write_file ---
+
+@test "_write_file writes stdin content to the file" {
+  local f="${BATS_TEST_TMPDIR}/out"
+  run _write_file "$f" <<< "hello content"
+  [ "$status" -eq 0 ]
+  [ "$(cat "$f")" = "hello content" ]
+}
+
+@test "_write_file in dry-run does not create the file" {
+  local f="${BATS_TEST_TMPDIR}/out"
+  SHELLLIBS_DRYRUN=1 run _write_file "$f" <<< "nope"
+  [ "$status" -eq 0 ]
+  [ ! -e "$f" ]
+  [[ "$output" == *"nope"* ]]
+}
+
+@test "_write_file backs up an existing file before overwriting" {
+  local f="${BATS_TEST_TMPDIR}/out"
+  printf 'old\n' > "$f"
+  _write_file "$f" <<< "new"
+  local baks=( "${f}".bak.* )
+  [ "${#baks[@]}" -eq 1 ]
+  [ "$(cat "${baks[0]}")" = "old" ]
+  [ "$(cat "$f")" = "new" ]
+}
+
+@test "_write_file with no argument returns 2" {
+  run _write_file <<< "x"
+  [ "$status" -eq 2 ]
+}

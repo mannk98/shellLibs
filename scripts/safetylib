@@ -52,4 +52,20 @@ _append_line() {
   return 0
 }
 
-export -f _run _backup_file _append_line
+# Overwrite a file with content from stdin, backing up first.
+_write_file() {
+  local file="$1"
+  [[ -z $file ]] && { log-error "Usage: _write_file <file>  (content on stdin)"; return 2; }
+  local content; content="$(cat)"
+  if [[ -n ${SHELLLIBS_DRYRUN:-} ]]; then
+    log-run "DRY-RUN would write ${file} with:"
+    printf '%s\n' "$content"
+    return 0
+  fi
+  _backup_file "$file"
+  printf '%s\n' "$content" >"$file" || { log-error "_write_file: write failed for ${file}"; return 1; }
+  log-info "wrote ${file}"
+  return 0
+}
+
+export -f _run _backup_file _append_line _write_file
