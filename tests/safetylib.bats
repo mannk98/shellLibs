@@ -149,3 +149,22 @@ setup() {
   run _write_file <<< "x"
   [ "$status" -eq 2 ]
 }
+
+# --- _confirm ---
+
+@test "_confirm in dry-run passes without prompting" {
+  SHELLLIBS_DRYRUN=1 run _confirm "do thing?"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"DRY-RUN would ask"* ]]
+}
+
+@test "_confirm with SHELLLIBS_ASSUME_YES passes without prompting" {
+  SHELLLIBS_ASSUME_YES=1 run _confirm "do thing?"
+  [ "$status" -eq 0 ]
+}
+
+@test "_confirm with no TTY and no ASSUME_YES refuses (returns 1)" {
+  run _confirm "do thing?"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"refused"* ]]
+}
