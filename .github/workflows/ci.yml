@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  lint:
+    name: shellcheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: shellcheck version
+        run: shellcheck --version
+      - name: Lint (severity=warning gate)
+        run: make lint-ci
+
+  test:
+    name: bats
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install bats
+        run: npm install -g bats
+      - name: bats version
+        run: bats --version
+      - name: Run tests
+        run: make test

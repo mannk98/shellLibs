@@ -4,11 +4,12 @@ SOURCES := $(wildcard scripts/*) install.sh
 SHELLCHECK_FLAGS := --shell=bash --severity=style
 REPORT := agent_docs/shellcheck-report.txt
 
-.PHONY: help lint lint-report lint-install test test-install
+.PHONY: help lint lint-ci lint-report lint-install test test-install
 
 help:
 	@echo "Targets:"
-	@echo "  lint          Run shellcheck on scripts/* and install.sh"
+	@echo "  lint          Run shellcheck (severity=style) — shows everything incl. the tracked SC2015"
+	@echo "  lint-ci       CI gate: shellcheck severity=warning — fails only on real warnings/errors"
 	@echo "  lint-report   Run shellcheck and save full output to $(REPORT)"
 	@echo "  lint-install  Install shellcheck via apt (needs sudo)"
 	@echo "  test          Run the bats unit-test suite in tests/"
@@ -17,6 +18,12 @@ help:
 lint:
 	@command -v shellcheck >/dev/null || { echo "shellcheck not found — run 'make lint-install'"; exit 1; }
 	shellcheck $(SHELLCHECK_FLAGS) $(SOURCES)
+
+# CI gate. severity=warning excludes the tracked SC2015 (info, see improvement-proposals.md §9),
+# so this exits 0 unless a real warning/error is introduced.
+lint-ci:
+	@command -v shellcheck >/dev/null || { echo "shellcheck not found — run 'make lint-install'"; exit 1; }
+	shellcheck --shell=bash --severity=warning $(SOURCES)
 
 lint-report:
 	@command -v shellcheck >/dev/null || { echo "shellcheck not found — run 'make lint-install'"; exit 1; }
