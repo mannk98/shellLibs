@@ -3,6 +3,7 @@
 #need sudo permission to execute
 source ./scripts/logshell
 source ./scripts/checksystem
+source ./scripts/safetylib
 
 # Resolve which user's ~/.bashrc we should append to. When invoked via `sudo`,
 # $HOME and ~ point at /root — but the block needs to land in the *invoking*
@@ -22,7 +23,7 @@ target_bashrc="${target_home}/.bashrc"
 [[ $(checkIfRootSession) == "yes" ]] && {
 # clean old installed
 log-info "Delete old source at /bin"
-rm -rf /bin/scripts
+[[ -d /bin/scripts ]] && _run rm -rf /bin/scripts
 
 [[ -e "/bin/apt-port" ]] && {
     for file in ./scripts/*; do
