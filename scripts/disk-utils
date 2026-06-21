@@ -53,6 +53,9 @@ function disk-mount-partition() {
     return 1
   fi
 
+  _need_root || return 1
+  _confirm "Mount ${partition} at ${mount_point} and add a UUID entry to /etc/fstab?" || return 1
+
   if [[ ! -d $mount_point ]]; then
     echo "Creating mount point at $mount_point..."
     mkdir -p "$mount_point"

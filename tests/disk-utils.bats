@@ -10,7 +10,7 @@ setup() {
 @test "disk-mount-partition -h prints usage" {
   run disk-mount-partition -h
   [ "$status" -eq 0 ]
-  [[ "$output" == *"Usage:"* ]]
+  [[ "$output" == *"Usage:"* ]] || return 1
 }
 
 @test "disk-mount-partition (dry-run) previews the mount, runs nothing" {
@@ -22,6 +22,7 @@ setup() {
   dev="$(ls /dev/disk0 /dev/sda /dev/vda 2>/dev/null | head -n1)"
   [ -n "$dev" ] || skip "no block device available to exercise the guard"
   SHELLLIBS_DRYRUN=1 run disk-mount-partition "$dev" "${BATS_TEST_TMPDIR}/mnt" ext4
-  [[ "$output" == *"DRY-RUN"* ]]
-  [[ "$output" == *"mount"* ]]
+  [[ "$output" == *"DRY-RUN"* ]] || return 1
+  [[ "$output" == *"mount"* ]] || return 1
+  [[ "$output" == *"would ask"* ]] || return 1
 }
