@@ -25,6 +25,9 @@ function admin-user-add-to-sudo() {
     return 0
   }
 
+  _need_root || return 1
+  _confirm "Grant '${username}' passwordless sudo (NOPASSWD:ALL in /etc/sudoers)?" || return 1
+
   _run apt install sudo &>/dev/null
   if ! _run usermod -aG sudo "${username}"; then
     echo "This script need sudo permission to execute."
@@ -89,6 +92,10 @@ function admin-swap-enable() {
            Note: This script need sudo permission to execute."
     return 0
   }
+
+  _need_root || return 1
+  _need_cmd mkswap || return 1
+  _confirm "Create ${sizeSwap} swapfile at ${pathSwap} and add it to /etc/fstab?" || return 1
 
   echo "List swapfile on this system:"
   swapon --show

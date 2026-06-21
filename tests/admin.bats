@@ -11,21 +11,23 @@ setup() {
 @test "admin-swap-enable (dry-run) previews fallocate + fstab append, touches nothing" {
   SHELLLIBS_DRYRUN=1 run admin-swap-enable "${BATS_TEST_TMPDIR}/swap" 1G
   [ "$status" -eq 0 ]
-  [[ "$output" == *"DRY-RUN"* ]]
-  [[ "$output" == *"fallocate"* ]]
-  [[ "$output" == *"/etc/fstab"* ]]
+  [[ "$output" == *"DRY-RUN"* ]] || return 1
+  [[ "$output" == *"fallocate"* ]] || return 1
+  [[ "$output" == *"/etc/fstab"* ]] || return 1
+  [[ "$output" == *"would ask"* ]] || return 1
   [ ! -e "${BATS_TEST_TMPDIR}/swap" ]
 }
 
 @test "admin-user-add-to-sudo (dry-run) previews the sudoers append, touches nothing" {
   SHELLLIBS_DRYRUN=1 run admin-user-add-to-sudo someuser
   [ "$status" -eq 0 ]
-  [[ "$output" == *"DRY-RUN"* ]]
-  [[ "$output" == *"/etc/sudoers"* ]]
+  [[ "$output" == *"DRY-RUN"* ]] || return 1
+  [[ "$output" == *"/etc/sudoers"* ]] || return 1
+  [[ "$output" == *"would ask"* ]] || return 1
 }
 
 @test "admin-swap-enable -h prints usage" {
   run admin-swap-enable -h
   [ "$status" -eq 0 ]
-  [[ "$output" == *"Usage:"* ]]
+  [[ "$output" == *"Usage:"* ]] || return 1
 }
