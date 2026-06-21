@@ -157,6 +157,25 @@ These patterns are load-bearing — keep them when you edit or add a file.
 
 ---
 
+## Safety / dry-run
+
+Converted functions honour a global preview switch. Set `SHELLLIBS_DRYRUN` to any
+non-empty value and they print the commands and file edits they *would* perform —
+changing nothing:
+
+```bash
+SHELLLIBS_DRYRUN=1 admin-swap-enable /swapfile 2G   # preview, runs nothing
+admin-swap-enable /swapfile 2G                       # actually do it
+```
+
+Under the hood, functions route destructive work through `_run` (run a command),
+`_append_line` / `_write_file` (edit a file — idempotent, with an automatic
+`*.bak.<timestamp>` backup), all defined in `scripts/safetylib`. New destructive code
+should use these helpers. Converted so far: `admin-swap-enable`,
+`admin-user-add-to-sudo`, `disk-mount-partition`, `kvm-nat-port`, and `install.sh`.
+
+---
+
 ## Linting
 
 A `shellcheck` gate is wired up via the [`Makefile`](Makefile):

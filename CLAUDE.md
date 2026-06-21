@@ -32,6 +32,10 @@ After editing a script, re-run `install.sh` (or re-copy the file to `/bin/script
 
 - `logshell` — structured logger. Provides `log-debug`, `log-info`, `log-warning`, `log-error`, `log-run`, `log-step`, each color-coded and gated by `LOG_LEVEL`. Functions are `export -f`'d so they're visible to subshells.
 - `checksystem` — OS detection + predicates. The key helpers other scripts rely on are `checkOsID` (returns `ubuntu`/`debian`/`centos`/`alpine`/`almalinux`/`rocky`/...), `checkIfCommandExist`, `checkIfRootSession`, `checkIfFileHaveText`, `checkIfUserExist`.
+- `safetylib` — dry-run + safe file edits. `_run <cmd...>` (argv, no eval),
+  `_append_line <file> <line>` and `_write_file <file>` (idempotent, auto-backup),
+  `_backup_file`. All honour `SHELLLIBS_DRYRUN`. New destructive code (rm, fstab/sudoers
+  edits, iptables, …) MUST route through these instead of running the command directly.
 
 Most other files begin with `source "$(which logshell)"` and/or `source "$(which checksystem)"`. Keep that pattern when adding new files.
 

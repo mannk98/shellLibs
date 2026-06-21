@@ -26,6 +26,8 @@ make test-install  # brew / apt / npm, auto-detected
 | `test_helper.bash` | Shared setup — resolves `SHELLLIBS_ROOT` so tests can source `scripts/*` from any CWD. Loaded via `load test_helper`. |
 | `logshell.bats` | Message tagging + `LOG_LEVEL` gating for the logger. |
 | `checksystem.bats` | `checkIfCommandExist`, `checkIfFileHaveText`, `checkIfRootSession`, `checkIfUserExist`, `checkOsID`. |
+| `safetylib.bats` | `_run`, `_append_line`, `_write_file`, `_backup_file` (dry-run + backup + idempotency). |
+| `admin.bats`, `disk-utils.bats`, `kvm-utils.bats` | Dry-run pilot tests — verify converted functions preview safely. |
 
 ## The three techniques (and when to use them)
 

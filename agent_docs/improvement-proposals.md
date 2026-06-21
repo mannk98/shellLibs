@@ -206,6 +206,21 @@ The `scripts/` rename moved the install target to `/bin/scripts`, but several re
 
 ---
 
+## 12. Dry-run safety layer (safetylib)  ✅ v1 done
+
+**Effort:** M — **Risk:** low — **Value:** high — **Status:** v1 shipped
+
+New `scripts/safetylib` foundation file: `_run` (argv, no eval), `_append_line` /
+`_write_file` (idempotent, auto-backup), `_backup_file`, all gated by `SHELLLIBS_DRYRUN`.
+Pilots converted: `admin-swap-enable`, `admin-user-add-to-sudo`, `disk-mount-partition`,
+`kvm-nat-port`, `install.sh` (rm -rf now guarded + previewable). Tests in
+`tests/safetylib.bats` + per-pilot dry-run suites. Design: `2026-06-20-safetylib-dryrun-design.md`.
+
+Open (next): `_confirm` + `SHELLLIBS_ASSUME_YES`; `_need_root` / `_need_cmd`; convert the
+remaining destructive functions; `admin-user-add-to-sudo` → `/etc/sudoers.d` (see §7).
+
+---
+
 ## My suggested order
 
 1. **§1 shellcheck + §4 bug fixes + Buckets B/C** ✅ done.
