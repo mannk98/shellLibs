@@ -80,4 +80,11 @@ _confirm() {
   log-info "aborted: ${prompt}"; return 1
 }
 
-export -f _run _backup_file _append_line _write_file _confirm
+# Require root (uses `id -u`, correct under sudo). Advisory (pass) in dry-run.
+_need_root() {
+  [[ "$(id -u)" -eq 0 ]] && return 0
+  [[ -n ${SHELLLIBS_DRYRUN:-} ]] && { log-warning "(dry-run) ${FUNCNAME[1]:-cmd} would require root"; return 0; }
+  log-error "${FUNCNAME[1]:-command} needs root (run with sudo)"; return 1
+}
+
+export -f _run _backup_file _append_line _write_file _confirm _need_root

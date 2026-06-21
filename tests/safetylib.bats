@@ -168,3 +168,24 @@ setup() {
   [ "$status" -eq 1 ]
   [[ "$output" == *"refused"* ]]
 }
+
+# --- _need_root ---
+
+@test "_need_root succeeds for root (mocked id)" {
+  id() { echo 0; }
+  run _need_root
+  [ "$status" -eq 0 ]
+}
+
+@test "_need_root fails for non-root (mocked id)" {
+  id() { echo 1000; }
+  run _need_root
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"needs root"* ]]
+}
+
+@test "_need_root in dry-run passes for non-root (mocked id)" {
+  id() { echo 1000; }
+  SHELLLIBS_DRYRUN=1 run _need_root
+  [ "$status" -eq 0 ]
+}
