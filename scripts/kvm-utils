@@ -1,14 +1,17 @@
 #!/bin/bash
 
+command -v _run >/dev/null 2>&1 || source "$(command -v safetylib 2>/dev/null || echo "$(dirname "${BASH_SOURCE[0]}")/safetylib")"
+
 function kvm-nat-port() {
   [[ $1 == "-h" || -z $1 ]] && {
     echo "Use: ${FUNCNAME[0]} <virbr_of_vm> <ip_of_vm> <port_vm> <port_host>
     Example: ${FUNCNAME[0]} virbr0 192.168.122.10 3389 3389"
+    return 0
   }
   virbr_of_vm=$1
   ip_of_vm=$2
   port_vm=$3
   port_host=$4
-  sudo iptables -I FORWARD -o "${virbr_of_vm}" -d "${ip_of_vm}" -p tcp --dport "${port_vm}" -j ACCEPT
-  sudo iptables -t nat -I PREROUTING -p tcp --dport "${port_host}" -j DNAT --to "192.168.122.10:${port_vm}"
+  _run sudo iptables -I FORWARD -o "${virbr_of_vm}" -d "${ip_of_vm}" -p tcp --dport "${port_vm}" -j ACCEPT
+  _run sudo iptables -t nat -I PREROUTING -p tcp --dport "${port_host}" -j DNAT --to "192.168.122.10:${port_vm}"
 }
