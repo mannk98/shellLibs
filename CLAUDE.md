@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo is
 
-A personal collection of Bash utility libraries organized by domain (docker, network, admin, database, nvidia, etc.). Each file under `scripts/` exposes a family of functions that are sourced into an interactive bash shell — there is no build system, no tests, and no lint. Work is done by editing the scripts and re-running `install.sh`.
+A personal collection of Bash utility libraries organized by domain (docker, network, admin, database, nvidia, etc.). Each file under `scripts/` exposes a family of functions that are sourced into an interactive bash shell — there is no build system. A `bats` test suite (`make test`) and a `shellcheck` lint gate (`make lint`) exist. Work is done by editing the scripts and re-running `install.sh`.
 
 ## Install / update workflow
 
@@ -87,7 +87,7 @@ Most functions assume root or sudo; some (docker, nmcli, iptables, systemctl, fs
 
 ## Gotchas when editing
 
-- **No test harness.** The only way to validate changes is to re-install and exercise the function in a live shell on a matching distro. Don't assume a change works without doing that. A shellcheck lint gate (`make lint`) exists and catches the big quoting/arity classes.
+- **Test what you can with bats.** Pure functions (string helpers, OS detection, the `safetylib` helpers) have `bats` unit tests (`make test`); system-touching functions still need a live shell on a matching distro to fully validate — `SHELLLIBS_DRYRUN=1` lets you preview those safely first. A shellcheck lint gate (`make lint`) catches the big quoting/arity classes.
 - **`source "$(which X)"` fails before install.** If you split a new helper out of an existing file, you must run `install.sh` before sourcing it from a sibling.
 - **No top-level side effects at source time.** Don't add `cmd` / `$(cmd)` / `export X=$(cmd)` at the top of a file. Every new shell sources all files in `/bin/scripts` — any top-level command runs on every login. Use a lazy ensurer pattern like `_apt_oscheck` in `apt-utils.sh` or `_nginxgen_ensure_con_name` in `nginxgen-utils`: a private helper that populates a cached global on first use, called at the top of each function that needs it.
 - **`_other.sh` and `apt-utils.sh` / `golang-utils.sh` end in `.sh`**, the rest don't. The installer `source`s every file regardless, but if you rename an existing file you'll break any caller that does `source "$(which old-name)"`.

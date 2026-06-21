@@ -14,7 +14,7 @@
 
 - **Guarded sibling-fallback loader** — the line a file uses to pull a dependency, working both installed (on PATH) and from the repo/tests:
   ```bash
-  command -v <sentinel> >/dev/null 2>&1 || source "$(which <dep> 2>/dev/null || echo "$(dirname "${BASH_SOURCE[0]}")/<dep>")"
+  command -v <sentinel> >/dev/null 2>&1 || source "$(command -v <dep> 2>/dev/null || echo "$(dirname "${BASH_SOURCE[0]}")/<dep>")"
   ```
   Sentinels: `log-run` for `logshell`, `checkOsID` for `checksystem`, `_run` for `safetylib`.
 - **Helpers never `exit`** (a sourced file's `exit` kills the user's shell) — always `return`.
@@ -97,7 +97,7 @@ Create `scripts/safetylib`:
 # No side effects at source time. Helpers never `exit` (sourced file) — only `return`.
 
 # Load logshell once, whether installed (on PATH) or run from the repo/tests (sibling).
-command -v log-run >/dev/null 2>&1 || source "$(which logshell 2>/dev/null || echo "$(dirname "${BASH_SOURCE[0]}")/logshell")"
+command -v log-run >/dev/null 2>&1 || source "$(command -v logshell 2>/dev/null || echo "$(dirname "${BASH_SOURCE[0]}")/logshell")"
 
 # Run a command (argv — no eval). Returns the command's own exit status.
 _run() {
@@ -192,9 +192,13 @@ _backup_file() {
     log-run "DRY-RUN would back up ${f} -> ${bak}"
     return 0
   fi
-  cp -p "$f" "$bak" && log-info "backed up ${f} -> ${bak}"
+  cp -p "$f" "$bak" || { log-error "_backup_file: cp failed for ${f}"; return 1; }
+  log-info "backed up ${f} -> ${bak}"
+  return 0
 }
 ```
+(Explicit `return 0`: a trailing `&& log-info` returns 1 on success when `LOG_LEVEL` silences INFO — log-* gating sets `$?` to 1.)
+
 and change the export line to:
 ```bash
 export -f _run _backup_file
@@ -290,9 +294,13 @@ _append_line() {
     return 0
   fi
   _backup_file "$file"
-  printf '%s\n' "$line" >>"$file" && log-info "appended to ${file}: ${line}"
+  printf '%s\n' "$line" >>"$file" || { log-error "_append_line: write failed for ${file}"; return 1; }
+  log-info "appended to ${file}: ${line}"
+  return 0
 }
 ```
+(The explicit `return 0` matters: a trailing `&& log-info` would make the function return 1 on success whenever `LOG_LEVEL` silences INFO — log-* gating sets `$?` to 1.)
+
 and update the export line to:
 ```bash
 export -f _run _backup_file _append_line
@@ -377,9 +385,13 @@ _write_file() {
     return 0
   fi
   _backup_file "$file"
-  printf '%s\n' "$content" >"$file" && log-info "wrote ${file}"
+  printf '%s\n' "$content" >"$file" || { log-error "_write_file: write failed for ${file}"; return 1; }
+  log-info "wrote ${file}"
+  return 0
 }
 ```
+(Explicit `return 0` — see the Task 3 note: a trailing `&& log-info` returns 1 on success when `LOG_LEVEL` silences INFO.)
+
 and update the export line to:
 ```bash
 export -f _run _backup_file _append_line _write_file
@@ -460,7 +472,7 @@ source "$(which checksystem)"
 with:
 ```bash
 command -v log-run  >/dev/null 2>&1 || source "$(which logshell    2>/dev/null || echo "$(dirname "${BASH_SOURCE[0]}")/logshell")"
-command -v checkOsID >/dev/null 2>&1 || source "$(which checksystem 2>/dev/null || echo "$(dirname "${BASH_SOURCE[0]}")/checksystem")"
+command -v checkOsID >/dev/null 2>&1 || source "$(command -v checksystem 2>/dev/null || echo "$(dirname "${BASH_SOURCE[0]}")/checksystem")"
 command -v _run     >/dev/null 2>&1 || source "$(which safetylib   2>/dev/null || echo "$(dirname "${BASH_SOURCE[0]}")/safetylib")"
 ```
 
@@ -575,7 +587,7 @@ source "$(which logshell)"
 with:
 ```bash
 command -v log-run >/dev/null 2>&1 || source "$(which logshell  2>/dev/null || echo "$(dirname "${BASH_SOURCE[0]}")/logshell")"
-command -v _run    >/dev/null 2>&1 || source "$(which safetylib 2>/dev/null || echo "$(dirname "${BASH_SOURCE[0]}")/safetylib")"
+command -v _run    >/dev/null 2>&1 || source "$(command -v safetylib 2>/dev/null || echo "$(dirname "${BASH_SOURCE[0]}")/safetylib")"
 ```
 
 - [ ] **Step 4: Convert `disk-mount-partition`'s mutating calls**
@@ -673,7 +685,7 @@ Expected: the dry-run test FAILS (no "DRY-RUN"; would try real `iptables`). The 
 In `scripts/kvm-utils`, immediately after the `#!/bin/bash` line, add:
 ```bash
 
-command -v _run >/dev/null 2>&1 || source "$(which safetylib 2>/dev/null || echo "$(dirname "${BASH_SOURCE[0]}")/safetylib")"
+command -v _run >/dev/null 2>&1 || source "$(command -v safetylib 2>/dev/null || echo "$(dirname "${BASH_SOURCE[0]}")/safetylib")"
 ```
 
 - [ ] **Step 4: Fix the `-h` guard (missing `return 0`) and convert the iptables calls**
