@@ -87,4 +87,12 @@ _need_root() {
   log-error "${FUNCNAME[1]:-command} needs root (run with sudo)"; return 1
 }
 
-export -f _run _backup_file _append_line _write_file _confirm _need_root
+# Require a command to exist. Advisory (pass) in dry-run.
+_need_cmd() {
+  [[ -z $1 ]] && { log-error "_need_cmd: no command given"; return 2; }
+  command -v "$1" >/dev/null 2>&1 && return 0
+  [[ -n ${SHELLLIBS_DRYRUN:-} ]] && { log-warning "(dry-run) ${FUNCNAME[1]:-cmd} would require '$1'"; return 0; }
+  log-error "${FUNCNAME[1]:-command} needs '$1' which is not installed"; return 1
+}
+
+export -f _run _backup_file _append_line _write_file _confirm _need_root _need_cmd

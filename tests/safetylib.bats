@@ -189,3 +189,26 @@ setup() {
   SHELLLIBS_DRYRUN=1 run _need_root
   [ "$status" -eq 0 ]
 }
+
+# --- _need_cmd ---
+
+@test "_need_cmd succeeds for an existing command" {
+  run _need_cmd bash
+  [ "$status" -eq 0 ]
+}
+
+@test "_need_cmd fails for a missing command" {
+  run _need_cmd definitely_not_a_real_command_xyz
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"not installed"* ]]
+}
+
+@test "_need_cmd with no argument returns 2" {
+  run _need_cmd
+  [ "$status" -eq 2 ]
+}
+
+@test "_need_cmd in dry-run passes for a missing command" {
+  SHELLLIBS_DRYRUN=1 run _need_cmd definitely_not_a_real_command_xyz
+  [ "$status" -eq 0 ]
+}
