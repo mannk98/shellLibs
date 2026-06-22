@@ -6,11 +6,19 @@ this file is the quick backlog.
 
 ## Status (resume point — 2026-06-22)
 
-On **`dev`** (`origin/dev` @ `144e1de`; local `dev` is ahead with the run below, not yet
-pushed). Gates: `make test` → **114/114 green**, `make lint-ci` → **exit 0**. Dev machine is
-macOS (bash 3.2); the library runs on Linux. To re-orient:
-`agent_docs/improvement-proposals.md` (deep menu) + the dated
-`agent_docs/2026-06-*-safetylib-*` + `2026-06-22-structure-tidyup-audit.md` design/plan docs.
+On **`dev`**, all pushed — `origin/dev` @ `dc49e80` (in sync). Gates: `make test` →
+**114/114 green**, `make lint-ci` → **exit 0**. Dev machine is macOS (bash 3.2); the
+library runs on Linux. To re-orient: `agent_docs/improvement-proposals.md` (deep menu) +
+the dated `agent_docs/2026-06-*-safetylib-*` + `2026-06-22-structure-tidyup-audit.md` docs.
+
+**What's left (resume here) — nothing is half-applied; these are all not-started:**
+1. **safetylib conversion follow-up** — destructive functions that still run raw
+   (`apt-utils.sh`, most of `admin`, `disk-create-one-partition`, `cloudstack-utils`,
+   `lpic1a`); details in the "safety arc" section below.
+2. **database-utils MySQL creds off the CLI** (§7) — still `-p<pass>`, visible in `ps`.
+3. **Theme F** — file/function renames (deferred by choice).
+4. **§9** — SC2015 `A && B || C` hand-review (~11 sites).
+5. **"Ideas"** features (slh discoverability, sys-report, _compat shim, …) — none started.
 
 **Shipped this run (local `dev`, closes the safety arc + structure quick-wins):**
 - **Structure tidy-up — quick wins** (commits 3015329 / 4bfbc0a / 849178c / f01bb8d) from the `scripts/` audit (`agent_docs/2026-06-22-structure-tidyup-audit.md`): (a) guarded source headers in apt-utils.sh/lpic1a/cloudstack-utils; (b) fall-through guards + inverted `command -v` in checksystem (`checkZombieParents`/`checkStressTestCpu`/`checkStressTestRam`), disk-utils (`disk-check-performance`), admin (`changeUserSession`/`kernelInstallSpecificVersion`); (c) `ssh-enable-root` now needs an explicit action (no silent root-enable) + edits sshd_config via safetylib; (d) logshell `<ts> [level]` spacing, git-utils branch-default-then-exec bug, deduped `admin-apt-disable-autoupdate`→alias.
@@ -35,7 +43,12 @@ macOS (bash 3.2); the library runs on Linux. To re-orient:
 
 - [x] **safetylib v2:** `_confirm` + `SHELLLIBS_ASSUME_YES` — prompt before destructive ops (skipped in dry-run / when ASSUME_YES set).
 - [x] **`_need_root` / `_need_cmd`** preflight helpers — standardize the ad-hoc root/command checks scattered across functions.
-- [x] **Convert the remaining destructive functions** to `_run` / `_append_line` / `_write_file` — done for `nvidia-utils`, `docker-utils`, `network-utils` (each with a dry-run bats suite). `nginxgen-utils` is an inspection module (out of scope). Follow-up pass for `cloudstack-utils` / `lpic1a` / `database-utils` / `ssh-utils` / `git-utils` / `disk-create-partition` — see the design doc's "Follow-up" list.
+- [x] **Convert the *core* destructive functions** to `_run` / `_append_line` / `_write_file` — done for `nvidia-utils`, `docker-utils`, `network-utils` (each with a dry-run bats suite); plus the pilots + `database-utils` (Theme C) + `ssh-enable-root`. `nginxgen-utils` is inspection-only (out of scope).
+- [ ] **Convert the *remaining* destructive functions** (follow-up to the sweep — full list in `2026-06-22-safetylib-conversion-design.md` §Follow-up). Still run raw, so **not** dry-run-safe / unguarded:
+  - **`apt-utils.sh`** — `apt-disable-autoupdate` (writes `/etc/apt/apt.conf.d/` + `systemctl restart`), `apt-setup-localrepo-{debubuntu,cenred}` (raw `apt`/`cp` + `/etc/apt/sources.list.d` write; off-by-one already fixed). The `apt-install`/`-remove`/`-purge` wrappers *are* the package-manager path — optional `_run` wrap just for previewability.
+  - **`admin` (the rest)** — `coredump-enable`, `create-desktop-app`, `sshagent-addPrivateKey`/`addHost`, `disableSElinuxCentos`, `updateInitRamdisk`, `cgroupChangeToV2`, `change-hostname`, `install-ibus-unikey`, `swap-disable`/`swap-disable-all` (these `nano /etc/fstab` + `swapoff`). *(swap-enable / user-add-to-sudo / user-add-to-group / timezone already done.)*
+  - **`disk-utils:disk-create-one-partition`** (`parted`/`mkfs`), **`cloudstack-utils:disk-fix-cloudstack-qcow2-image`** (`modprobe`/`qemu-nbd`/`fsck`), **`lpic1a`** (`kmod_unload`/`kmod_blacklist` write `/etc/modprobe.d`, `grubReInstall`).
+  - Lowest priority: `git-utils` (git push/branch — its own safety domain), `tar-utils`, `_other.sh:install-qt5`.
 - [x] **`install.sh:30`** — wrap the legacy `rm -f "$(which …)"` apt-port cleanup in `_run` *(final-review follow-up)*.
 - [x] **`_append_line /etc/sudoers`** — migrated `admin-user-add-to-sudo` to a `visudo -cf`-validated `/etc/sudoers.d/<user>` drop-in (see improvement-proposals §7).
 - [x] **Audit `exit` in sourced functions** — swept and fixed all 7 real sites (`admin`, `checksystem`, `network-utils` ×4, `apt-utils.sh`); `ssh-utils`/`install.sh` hits are non-bugs. *(final-review follow-up)*
@@ -63,5 +76,6 @@ Quick wins shipped (see above). Remaining, in recommended order:
 
 - [ ] §3 — lazy-load domains (autoload stubs) for faster shell startup.
 - [ ] §6 — naming / extension consistency (mixed `.sh`).
-- [ ] §7 — security hardening (sudoers.d via `visudo`, MySQL creds off the CLI, fstab/sudoers backups + idempotency).
-- [ ] §9 — SC2015 hand-review (the 11 `A && B || C` sites).
+- [ ] §7 — security hardening: sudoers.d via `visudo` ✅ + fstab/sudoers backups & idempotency ✅ (both via safetylib). **STILL OPEN: MySQL creds off the CLI** — `database-utils` still passes `-p<pass>`, visible in `ps` *and* in the dry-run preview; move to `MYSQL_PWD` / a `~/.my.cnf` (0600).
+- [ ] §9 — SC2015 hand-review (the ~11 `A && B || C` sites flagged by the IDE during this run: `network-utils:16/53/347`, `docker-utils:162/171`, `lpic1a:24/27`, `nginxgen-utils:111`, `nvidia-utils:147`, `admin`/`checksystem` misc). Mostly safe idioms; walk each, rewrite the 1–2 genuine footguns.
+- [ ] §1 — wire `shfmt` into `make lint` / CI (still not done).
