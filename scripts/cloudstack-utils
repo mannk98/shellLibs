@@ -26,13 +26,13 @@ function cloudstack-genNginxConfig() {
     return 0
   }
 
-  prefix_domain_name=${1}
-  IP_Private=${2}
-  WHITELISIPS="
+  local prefix_domain_name=${1}
+  local IP_Private=${2}
+  local WHITELISIPS="
 172.17.0.1,
 210.111.143.41,
 "
-  template='
+  local template='
 Name = "service-ssh"
 State = {Running = true}
 [Containers.env]
@@ -82,7 +82,7 @@ function disk-fix-cloudstack-qcow2-image() {
     return 0
   }
   sudo modprobe nbd max_part=8
-  qcow2_image=$1
+  local qcow2_image=$1
   if [[ ! -f $qcow2_image ]]; then
     log-error "Error: QCOW2 image $qcow2_image not found."
     return 1

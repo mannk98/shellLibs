@@ -167,3 +167,11 @@ setup() {
   [ "$status" -eq 0 ]
   [[ "$output" != *"PSTREE-RAN"* ]] || return 1
 }
+
+@test "checkIfUserExist does not leak username into the shell (local sweep)" {
+  # Direct call (not `run`) with id mocked, then assert the positional did not leak.
+  id() { return 0; }
+  unset username
+  checkIfUserExist someuser >/dev/null
+  [ -z "${username:-}" ] || return 1
+}

@@ -29,7 +29,7 @@ function checkIPPub() {
 }
 
 function checkIfRootSession() {
-  username="$USER"
+  local username="$USER"
   [[ "${username}" == "root" ]] && {
     echo "yes"
     return 0
@@ -58,7 +58,7 @@ function checkIfFileHaveText() {
 }
 
 function checkIfUserExist() {
-  username=${1}
+  local username=${1}
   if id "${username}"; then
     echo "yes"
     return 0

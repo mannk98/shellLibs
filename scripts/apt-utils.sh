@@ -216,7 +216,7 @@ apt-clean-cache() {
 # search what package provide file / header file (.h)
 apt-file-search() {
   _apt_oscheck
-  filename=${1}
+  local filename=${1}
   [[ ${oscheck} == *"debian"* || ${oscheck} == *"ubuntu"* ]] && {
     apt-file search "${filename}"
   }
@@ -250,8 +250,9 @@ apt-setup-localrepo-debubuntu() {
 
   apt update
 
+  local localrepodir
   localrepodir=$(realpath -s "${1}")
-  count=0
+  local count=0
 
   echo "Info: Clean apt cache..."
   sudo apt clean cache
@@ -279,6 +280,7 @@ apt-setup-localrepo-debubuntu() {
   dpkg-scanpackages ./ /dev/null | gzip -9c >amd64/Packages.gz
   chmod u+x "${localrepodir}"
 
+  local repofilename
   repofilename=$(basename "${localrepodir}")
   echo "deb [trusted=yes] file:${localrepodir} amd64/" >/etc/apt/sources.list.d/"${repofilename}".list
 
@@ -292,9 +294,9 @@ apt-setup-localrepo-cenred() {
     return 0
   }
 
-  localrepodir="${1}"
+  local localrepodir="${1}"
   mkdir -p "${localrepodir}"
-  count=0
+  local count=0
   for value in "$@"; do
     ((count++))
     [[ $count == '0' ]] && {

@@ -56,10 +56,10 @@ nginxgen-checkconfig() {
 }
 
 nginxgen-getlog() {
-  service="${1}"
-  client="${2}"
-  date="${3}"
-  token=""
+  local service="${1}"
+  local client="${2}"
+  local date="${3}"
+  local token=""
 
   #[[ ${date} == "" ]] && {
   #	date=$(date +"%d/%b/%Y:%H:%M:%S" |  cut -d: -f1)
@@ -94,11 +94,11 @@ function nginxgen-createTemplate() {
     return 0
   }
 
-  Name=${1}
-  VPROTO=${2}
-  VHOST=${3}
-  VPORT_SERVER_ADDRESS=${4}
-  WHITELISIPS=${5}
+  local Name=${1}
+  local VPROTO=${2}
+  local VHOST=${3}
+  local VPORT_SERVER_ADDRESS=${4}
+  local WHITELISIPS=${5}
 
   if echo "${VPORT_SERVER_ADDRESS}" | grep ":" >>/dev/null; then
     VPORT_SERVER_ADDRESS="SERVER_ADDRESS = \"${VPORT_SERVER_ADDRESS}\""
@@ -117,7 +117,7 @@ ${WHITELISIPS}
 "
   }
 
-  configToml="[[Containers]]
+  local configToml="[[Containers]]
 Name = \"${Name}\"
 State = {Running = true}
 [Containers.env]

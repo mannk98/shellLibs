@@ -4,23 +4,23 @@ command -v log-run   >/dev/null 2>&1 || source "$(command -v logshell    2>/dev/
 command -v checkOsID >/dev/null 2>&1 || source "$(command -v checksystem 2>/dev/null || echo "$(dirname "${BASH_SOURCE[0]}")/checksystem")"
 
 checkPcidev() {
-  dev="${1}"
+  local dev="${1}"
   lspci -s "${dev}" -v
 }
 
 # check base on devid
 checkUsbdev() {
-  devid="${1}"
+  local devid="${1}"
   lsusb -v -d "${devid}"
 }
 
 kmod_unload() {
-  module="${1}"
+  local module="${1}"
   modprobe -r "${module}"
 }
 
 kmod_blacklist() {
-  module="${1}"
+  local module="${1}"
   [ ! -e /etc/modprobe.d/"${module}".conf ] && {
     echo "blacklist ${module}" >/etc/modprobe.d/"${module}".conf
   } || {
