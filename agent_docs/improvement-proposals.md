@@ -96,6 +96,17 @@ All originally-listed bugs fixed + extras found via shellcheck (SC2317 dead code
 
 Shellcheck run after these changes: **239 → 190 findings** (49 fewer). The remaining 190 are overwhelmingly style/quoting (Bucket B) — no known bugs left in the "clearly broken" category.
 
+**Follow-up exit sweep (2026-06-22).** §4 fixed the two `exit`-in-sourced-file bugs found at the time (`admin:278`, `nvidia-utils:107`); a later `grep -n '\bexit\b'` over `scripts/` found the rest. All `exit` in a sourced file kills the *user's* interactive shell, so each became `return`:
+
+| File:fn | Was | Now |
+|---|---|---|
+| `admin:admin-crontab-add` | `-h` guard `exit 0` | `return 0` |
+| `checksystem:unknown_os` | `exit 1` | `return 1` (+ `checkOsDistro` now `return 1`s after calling it, so an unknown OS still aborts the function) |
+| `network-utils:nwSetupAccessPoint` | 4× `cd … \|\| exit 1` | `\|\| return 1` |
+| `apt-utils.sh` (local-repo build) | `cd "${localrepodir}" \|\| exit` | `\|\| return 1` |
+
+Non-bugs left alone: `ssh-utils:33,202` are the *remote* `ssh … exit` command, not a shell exit; `install.sh:37` is an executed script (not sourced), where `exit` is correct. Regression tests: `tests/admin.bats` + `tests/checksystem.bats` use a `bash -c "source …; <fn>; echo SURVIVED"` sentinel — an `exit` aborts the child before the sentinel prints.
+
 Still-open items that came out of the shellcheck run but are not bugs:
 - **SC2015 (14 remaining):** `A && B || C` as pseudo-if. Most are idiomatic fallbacks; some may be latent issues. Needs hand review, separate PR.
 - **SC2088 (1 remaining):** `install.sh:42` — `~/.bashrc` inside a user-facing message string; literal display is the intent. Can leave or silence with a directive.
@@ -144,7 +155,7 @@ If we do this, do it alongside the lazy-load work (§3) since both touch user-fa
 
 **Effort:** S–M — **Risk:** low (improving) — **Value:** depends on threat model
 
-- `admin-user-add-to-sudo` appends `NOPASSWD:ALL` to `/etc/sudoers` unconditionally. At minimum: prompt, and write to `/etc/sudoers.d/<user>` via `visudo -c` instead of appending to the main file (a bad edit here locks you out of sudo).
+- ✅ `admin-user-add-to-sudo` — **done.** Now prompts (`_confirm`) and writes a per-user `/etc/sudoers.d/<user>` drop-in, validated with `visudo -cf` in a scratch file before it can land, then `chmod 0440` — instead of appending `NOPASSWD:ALL` to the monolithic `/etc/sudoers` (a bad edit there locks you out of sudo). Routed through `_write_file`/`_run`, so dry-run previews it.
 - `database-utils` passes passwords as CLI args (`mysql -p"${PASS}"`) — visible to anyone running `ps`. Use `MYSQL_PWD` env var or a `~/.my.cnf` with 0600 perms.
 - `ssh-utils:ssh-copy-key:134` falls back to `cat ~/.ssh/id_rsa.pub` — won't exist on ed25519-only systems. Use `ssh-add -L` or glob `~/.ssh/id_*.pub`.
 - Several functions write to `/etc/fstab` / `/etc/sudoers` / `/etc/network/interfaces` with no backup and no idempotency check — re-running them accumulates duplicate entries.
@@ -220,9 +231,12 @@ Pilots converted: `admin-swap-enable`, `admin-user-add-to-sudo`, `disk-mount-par
 (advisory in dry-run) added and wired into the 5 pilots; install.sh apt-port `rm` wrapped in
 `_run`; all bats `[[ ]]` assertions hardened with `|| return 1`. Design: `2026-06-21-safetylib-v2-design.md`.
 
+**v2.1 (2026-06-22):** `admin-user-add-to-sudo` migrated to a `visudo -cf`-validated
+`/etc/sudoers.d/<user>` drop-in (see §7). Plus an **exit-audit sweep** — every `exit` in a
+*sourced* file turned into `return` (see §4 follow-up).
+
 Open (next): convert the remaining destructive functions (network-utils, nvidia-utils,
-docker-utils, nginxgen-utils, …); `admin-user-add-to-sudo` → `/etc/sudoers.d` + `visudo -c`
-validation (see §7).
+docker-utils, nginxgen-utils, …) — the last big item in the safety arc.
 
 ---
 

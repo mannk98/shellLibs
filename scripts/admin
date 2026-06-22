@@ -26,14 +26,34 @@ function admin-user-add-to-sudo() {
   }
 
   _need_root || return 1
-  _confirm "Grant '${username}' passwordless sudo (NOPASSWD:ALL in /etc/sudoers)?" || return 1
+  _need_cmd visudo || return 1
+  local dest="/etc/sudoers.d/${username}"
+  _confirm "Grant '${username}' passwordless sudo via ${dest} (NOPASSWD:ALL)?" || return 1
 
   _run apt install sudo &>/dev/null
   if ! _run usermod -aG sudo "${username}"; then
     echo "This script need sudo permission to execute."
   fi
-  _append_line /etc/sudoers "${username} ALL=(ALL:ALL) NOPASSWD:ALL" \
-    && echo "Done add user to sudo group and enable sudo without password."
+
+  # Write a per-user drop-in under /etc/sudoers.d instead of appending to the
+  # monolithic /etc/sudoers — a malformed line in the main file can lock you out
+  # of sudo entirely. Validate the rule with `visudo -cf` in a scratch file first
+  # so a bad entry never reaches sudoers.d, then drop it in 0440 (sudo ignores
+  # group/world-writable drop-ins).
+  local rule="${username} ALL=(ALL:ALL) NOPASSWD:ALL"
+  local tmp; tmp="$(mktemp)" || { log-error "${FUNCNAME[0]}: mktemp failed"; return 1; }
+  printf '%s\n' "$rule" >"$tmp"
+  if command -v visudo >/dev/null 2>&1 && ! visudo -cf "$tmp"; then
+    log-error "${FUNCNAME[0]}: '${rule}' failed visudo validation — aborting"
+    rm -f "$tmp"
+    return 1
+  fi
+  rm -f "$tmp"
+
+  _write_file "$dest" <<<"$rule" || return 1
+  _run chmod 0440 "$dest"
+  _run chown root:root "$dest" \
+    && echo "Done: ${username} has passwordless sudo via ${dest}."
 }
 
 function admin-user-add-to-group() {
@@ -300,7 +320,7 @@ function admin-crontab-add() {
   [[ $# == 0 || $1 == "-h" ]] && {
     echo "Use: ${FUNCNAME[0]} 'crontab1' 'crontab2' ... 'crontab-n'
     Example: ${FUNCNAME[0]} '@reboot /etc/upstart/setupnetwork.sh' '@reboot /etc/upstart/expandRootdisk.sh'"
-    exit 0
+    return 0
   }
   crontab -l >mycron
 

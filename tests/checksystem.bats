@@ -120,3 +120,16 @@ setup() {
   run checkOsVersionID
   [ "$output" = '"22.04"' ]
 }
+
+# --- exit-audit regression --------------------------------------------------
+#
+# checksystem is sourced into the interactive shell, so a bare `exit` in any of
+# its functions kills the *user's* shell, not just the function. unknown_os (and
+# its caller checkOsDistro) must `return`, not `exit`. Run unknown_os in a child
+# shell and prove a command AFTER it still executes — an `exit` aborts the child
+# first, so the SURVIVED sentinel would never print.
+
+@test "unknown_os returns instead of exiting the shell" {
+  run bash -c "source '${SHELLLIBS_ROOT}/scripts/checksystem'; unknown_os; echo SURVIVED=\$?"
+  [[ "$output" == *"SURVIVED=1"* ]] || return 1
+}

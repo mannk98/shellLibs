@@ -494,16 +494,16 @@ Note: This script need sudo permission to execute."
   pass="${2}"
 
   tmpDir=$(mktemp -d)
-  cd "${tmpDir}" || exit 1
+  cd "${tmpDir}" || return 1
   sudo apt update
   sudo apt install -y "linux-headers-$(uname -r)" build-essential bc dkms git libelf-dev rfkill iw hostapd
-  mkdir -p src && cd src || exit 1
+  mkdir -p src && cd src || return 1
   git clone https://github.com/morrownr/8821au-20210708.git
   cd src/8821au-20210708 || return 1
   sudo apt install gcc-12
   sudo ./install-driver.sh
 
-  mkdir -p ~/mannkAP && cd ~/mannkAP || exit 1
-  git clone https://github.com/mannk98/create_ap.git && cd create_ap || exit 1
+  mkdir -p ~/mannkAP && cd ~/mannkAP || return 1
+  git clone https://github.com/mannk98/create_ap.git && cd create_ap || return 1
   ./create_ap -m nat wlx909a4a82dc60 enp2s0 "${ssid}" "${pass}" --country VN --ieee80211ac -c 36 --hidden --freq-band 5 --no-virt
 }

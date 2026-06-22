@@ -18,16 +18,33 @@ setup() {
   [ ! -e "${BATS_TEST_TMPDIR}/swap" ]
 }
 
-@test "admin-user-add-to-sudo (dry-run) previews the sudoers append, touches nothing" {
+@test "admin-user-add-to-sudo (dry-run) writes a validated /etc/sudoers.d drop-in, touches nothing" {
   SHELLLIBS_DRYRUN=1 run admin-user-add-to-sudo someuser
   [ "$status" -eq 0 ]
   [[ "$output" == *"DRY-RUN"* ]] || return 1
-  [[ "$output" == *"/etc/sudoers"* ]] || return 1
+  # writes a per-user drop-in, not the monolithic /etc/sudoers (a bad edit there
+  # can lock you out of sudo); the drop-in path is the new contract.
+  [[ "$output" == *"/etc/sudoers.d/someuser"* ]] || return 1
   [[ "$output" == *"would ask"* ]] || return 1
+  # safety: it must NOT append to the monolithic /etc/sudoers anymore.
+  [[ "$output" != *"would append to /etc/sudoers:"* ]] || return 1
 }
 
 @test "admin-swap-enable -h prints usage" {
   run admin-swap-enable -h
   [ "$status" -eq 0 ]
   [[ "$output" == *"Usage:"* ]] || return 1
+}
+
+# --- exit-audit regression --------------------------------------------------
+#
+# admin is sourced into the interactive shell, so a bare `exit` in any function
+# kills the *user's* shell, not just the function. The -h guard must `return`.
+# Run it in a child shell and prove the sentinel after the call still prints —
+# an `exit 0` would abort the child first, so SURVIVED would be missing.
+
+@test "admin-crontab-add -h returns instead of exiting the shell" {
+  run bash -c "source '${SHELLLIBS_ROOT}/scripts/admin'; admin-crontab-add -h; echo SURVIVED"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"SURVIVED"* ]] || return 1
 }

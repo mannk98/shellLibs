@@ -278,7 +278,7 @@ apt-setup-localrepo-debubuntu() {
   mkdir -p "${localrepodir}"
   cp -r /var/cache/apt/archives/* "${localrepodir}"
 
-  cd "${localrepodir}" || exit
+  cd "${localrepodir}" || return 1
   mkdir amd64
 
   if ! command -v dpkg-scanpackages; then

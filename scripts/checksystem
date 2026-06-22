@@ -7,7 +7,9 @@ unknown_os() {
   echo "You can find a list of supported OSes and distributions on our website: https://packages.gitlab.com/docs#os_distro_version"
   echo
   echo "For example, to force Ubuntu Trusty: os=ubuntu dist=trusty ./script.sh"
-  exit 1
+  # `return`, not `exit`: this file is sourced into the interactive shell, so an
+  # `exit` here would kill the user's shell. Callers must propagate the failure.
+  return 1
 }
 
 function checkOsID() {
@@ -114,11 +116,13 @@ checkOsDistro() {
 
     else
       unknown_os
+      return 1
     fi
   fi
 
   if [ -z "$dist" ]; then
     unknown_os
+    return 1
   fi
 
   # remove whitespace from OS and dist name
