@@ -1,63 +1,103 @@
 #!/bin/bash
 
-source "$(which checksystem)"
-source "$(which logshell)"
-source "$(which admin)"
+command -v log-run   >/dev/null 2>&1 || source "$(command -v logshell    2>/dev/null || echo "$(dirname "${BASH_SOURCE[0]}")/logshell")"
+command -v checkOsID >/dev/null 2>&1 || source "$(command -v checksystem 2>/dev/null || echo "$(dirname "${BASH_SOURCE[0]}")/checksystem")"
+command -v _run      >/dev/null 2>&1 || source "$(command -v safetylib   2>/dev/null || echo "$(dirname "${BASH_SOURCE[0]}")/safetylib")"
 
 function nvidia-disable-nouveau() {
+  [[ $1 == "-h" ]] && {
+    echo "Usage: sudo ${FUNCNAME[0]}
+           Blacklist + unload the nouveau driver and rebuild the initramfs.
+           Note: needs root."
+    return 0
+  }
+
+  _need_root || return 1
+  _need_cmd rmmod || return 1
+  _confirm "Blacklist & unload nouveau and rebuild the initramfs?" || return 1
+
   [[ $(checkOsID) == *debian* || $(checkOsID) == *ubuntu* ]] && {
-    cat <<EOF | sudo tee /etc/modprobe.d/blacklist-nouveau.conf
+    _write_file /etc/modprobe.d/blacklist-nouveau.conf <<EOF
 blacklist nouveau
 options nouveau modeset=0
 EOF
-    sudo update-initramfs -u
+    _run update-initramfs -u
   }
 
   [[ $(checkOsID) == *centos* || $(checkOsID) == *redhat* ]] && {
-    echo "blacklist nouveau" >/etc/modprobe.d/denylist.conf
-
-    echo "options nouveau modeset=0" >>/etc/modprobe.d/denylist.conf
-    sudo dracut --force
-    grub2-mkconfig -o /boot/efi/EFI/redhat/grub.cfg
+    _write_file /etc/modprobe.d/denylist.conf <<EOF
+blacklist nouveau
+options nouveau modeset=0
+EOF
+    _run dracut --force
+    _run grub2-mkconfig -o /boot/efi/EFI/redhat/grub.cfg
   }
-  # log-step "Already disable nouveau kernel driver, now you need to unload it using "rmmod nouveau" or reboot your system."
-  log-step "Unloading nouevau..."
-  rmmod nouveau
-  admin-updateRamdisk
+
+  # The initramfs is already rebuilt in the matching OS branch above. (The old
+  # trailing `admin-updateRamdisk` call was a no-op typo — that function never
+  # existed — so dropping it changes nothing except the dead reference.)
+  log-step "Unloading nouveau..."
+  _run rmmod nouveau
 }
 
 function nvidia-unload-kmodule() {
-  # unload kernel module
-  rmmod nvidia_drm
-  rmmod nvidia_modeset
-  rmmod nvidia_uvm
-  rmmod nvidia
+  [[ $1 == "-h" ]] && {
+    echo "Usage: sudo ${FUNCNAME[0]}
+           Unload the nvidia kernel modules (nvidia_drm, nvidia_modeset, nvidia_uvm, nvidia)."
+    return 0
+  }
 
-  # reload kernel module
-  # nvidia_modeset, nvidia_uvm will auto restart
-  # after nvidia_drm started
-  #### modprobe nvidia_drm
+  _need_root || return 1
+  _need_cmd rmmod || return 1
+  _confirm "Unload all nvidia kernel modules now?" || return 1
+
+  # nvidia_modeset / nvidia_uvm auto-restart after nvidia_drm starts again.
+  _run rmmod nvidia_drm
+  _run rmmod nvidia_modeset
+  _run rmmod nvidia_uvm
+  _run rmmod nvidia
 }
 
 function nvidia-install-nvidiadockertoolkit() {
-  [[ $(checkOsID) == *debian* || $(checkOsID) == *ubuntu* ]] && {
-    curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg &&
-      curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list |
-      sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' |
-        sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+  [[ $1 == "-h" ]] && {
+    echo "Usage: sudo ${FUNCNAME[0]}
+           Add the NVIDIA container-toolkit repo, install it, and wire it into Docker.
+           Note: needs root."
+    return 0
+  }
 
-    sed -i -e '/experimental/ s/^#//g' /etc/apt/sources.list.d/nvidia-container-toolkit.list
-    sudo apt-get update
-    sudo apt-get install -y nvidia-container-toolkit
+  _need_root || return 1
+  _need_cmd curl || return 1
+
+  [[ $(checkOsID) == *debian* || $(checkOsID) == *ubuntu* ]] && {
+    # gpg --dearmor writes a *binary* keyring, so it can't go through _write_file
+    # (text-only); guard the pipeline by hand so dry-run still previews it.
+    if [[ -n ${SHELLLIBS_DRYRUN:-} ]]; then
+      log-run "DRY-RUN would fetch + dearmor the NVIDIA gpg key -> /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg"
+    else
+      curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey |
+        gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+    fi
+
+    # curl + sed only transform text; the actual mutation is the file write, which
+    # _write_file gates (and previews) — fed straight off the pipe via stdin.
+    curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list |
+      sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' |
+      _write_file /etc/apt/sources.list.d/nvidia-container-toolkit.list
+
+    _run sed -i -e '/experimental/ s/^#//g' /etc/apt/sources.list.d/nvidia-container-toolkit.list
+    _run apt-get update
+    _run apt-get install -y nvidia-container-toolkit
   }
 
   [[ $(checkOsID) == *centos* || $(checkOsID) == *redhat* ]] && {
     curl -s -L https://nvidia.github.io/libnvidia-container/stable/rpm/nvidia-container-toolkit.repo |
-      sudo tee /etc/yum.repos.d/nvidia-container-toolkit.repo
-    sudo yum install -y nvidia-container-toolkit
+      _write_file /etc/yum.repos.d/nvidia-container-toolkit.repo
+    _run yum install -y nvidia-container-toolkit
   }
-  sudo nvidia-ctk runtime configure --runtime=docker
-  sudo systemctl restart docker
+
+  _run nvidia-ctk runtime configure --runtime=docker
+  _run systemctl restart docker
 }
 
 function nvidia-list-devices() {
@@ -65,80 +105,92 @@ function nvidia-list-devices() {
 }
 
 function nvidia-install-driver() {
-  set -e
-  source "$(which logshell)"
-
   [[ ${1} = "-h" || -z ${1} ]] && {
-    echo "Usage: $FUNCNAME <specific package file / auto>
-  Note: This script need sudo permission to execute."
+    echo "Usage: sudo ${FUNCNAME[0]} <specific package file | auto>
+           Note: needs root."
     return 0
   }
 
-  package=$1
+  _need_root || return 1
+
+  local package=$1
+  local architec
   architec=$(uname -m)
-  #64 bits
-  [[ ${architec} == "x86_64" ]] && {
-    apt install linux-headers-amd64
-  }
-  #32 bits
-  [[ ${architec} == "i686" ]] && {
-    apt install linux-headers-686
-  }
 
-  #list="deb http://deb.debian.org/debian/ bullseye main contrib non-free"
-  #echo "$list" >>/etc/apt/sources.list
-  sudo apt install build-essential
+  # 64-bit / 32-bit kernel headers
+  [[ ${architec} == "x86_64" ]] && _run apt install linux-headers-amd64
+  [[ ${architec} == "i686" ]] && _run apt install linux-headers-686
 
-  nvidiaCheck="/usr/bin/nvidia-smi"
+  _run apt install build-essential
+
+  local nvidiaCheck="/usr/bin/nvidia-smi"
   [[ -e ${nvidiaCheck} ]] && {
-    log-step "Uninstall existing version of nvidia-driver and libraries..."
+    _confirm "An existing nvidia driver was found — uninstall it first?" || return 1
+    log-step "Uninstalling the existing nvidia driver and libraries..."
     [[ -e "/usr/bin/nvidia-installer" ]] && {
-      nvidia-installer --uninstall
+      _run nvidia-installer --uninstall
       log-info "Done uninstall static package."
     } || {
-      apt purge nvidia* libnvidia*
+      _run apt purge 'nvidia*' 'libnvidia*'
     }
   }
 
   [[ ${package} == "auto" ]] && {
-    log-step "Install auto version form online repository..."
-    apt update
-    apt install nvidia-driver firmware-misc-nonfree
+    log-step "Installing the latest driver from the online repository..."
+    _run apt update
+    _run apt install nvidia-driver firmware-misc-nonfree
     return 0
   }
 
   [[ ${package} ]] && {
-    chmod +x "./${package}"
-    log-step "Install package ${package}..."
-    "./${package}"
+    _run chmod +x "./${package}"
+    _confirm "Run the local installer ./${package} now?" || return 1
+    log-step "Installing package ${package}..."
+    _run "./${package}"
   }
 
-  # Mismatching nvidia kernel module loaded                                                                                                                                                                                                                                 │
-  # │                                                                                                                                                                                                                                                                         │
-  # │ The NVIDIA driver that is being installed (version 418.226.00) does not match the nvidia kernel module currently loaded (version 418.152.00).                                                                                                                           │
-  # │                                                                                                                                                                                                                                                                         │
-  # │ The X server, OpenGL, and GPGPU applications may not work properly.                                                                                                                                                                                                     │
-  # │                                                                                                                                                                                                                                                                         │
-  # │ The easiest way to fix this is to reboot the machine once the installation has finished. You can also stop the X server (usually by stopping
-  # the login manager, e.g. gdm3, sddm, or xdm), manually unload the module ("modprobe -r nvidia"), and restart the X server.
+  # If the installed driver version doesn't match the loaded kernel module, the X
+  # server / OpenGL / CUDA apps may misbehave — reboot, or `modprobe -r nvidia`
+  # and restart the display manager (gdm3/sddm/xdm).
 }
-
 
 function nvidia-check-version() {
   cat /proc/driver/nvidia/version
 }
 
-
 function nvidia-container-toolkitl-install() {
-  curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg &&
-    curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list |
-    sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' |
-      sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+  [[ $1 == "-h" ]] && {
+    echo "Usage: sudo ${FUNCNAME[0]}
+           Add the NVIDIA container-toolkit apt repo and install it via the local-repo helper."
+    return 0
+  }
 
-  sudo apt-get update
+  _need_root || return 1
+  _need_cmd curl || return 1
+
+  if [[ -n ${SHELLLIBS_DRYRUN:-} ]]; then
+    log-run "DRY-RUN would fetch + dearmor the NVIDIA gpg key -> /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg"
+  else
+    curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey |
+      gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+  fi
+
+  curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list |
+    sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' |
+    _write_file /etc/apt/sources.list.d/nvidia-container-toolkit.list
+
+  _run apt-get update
   apt-setup-localrepo-debubuntu gcc linux-headers-"$(uname -r)" nvidia-container-toolkit
 }
 
 nvidia-container-uninstall() {
-  sudo apt-get remove --purge '^nvidia-.*'
+  [[ $1 == "-h" ]] && {
+    echo "Usage: sudo ${FUNCNAME[0]}
+           Purge all nvidia-* packages."
+    return 0
+  }
+
+  _need_root || return 1
+  _confirm "Purge ALL nvidia-* packages?" || return 1
+  _run apt-get remove --purge '^nvidia-.*'
 }
