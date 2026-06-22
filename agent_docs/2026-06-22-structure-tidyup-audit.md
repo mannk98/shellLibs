@@ -24,7 +24,9 @@ interactive muscle memory.
   (7d5bac0) + docker/network/admin (9ea48b0); ~90 positionals localized, command-subs
   split for SC2155, intentional globals/exports/lazy-caches skipped; no-leak regression
   tests added (call the fn directly, then assert the var is unset).
-- [ ] **Theme E (rest)** — timezone/nvidia-toolkit/apt-quiet merges, localrepo off-by-one.
+- [x] **Theme E** — timezone GMT0/GMT7 + nvidia-toolkit dedup (8f6cdc4); apt-install/-quite
+  collapse + apt-setup-localrepo off-by-one fix (520c3d9). (cloudstack TOML→nginxgen and
+  the check-systemd dup deferred — lowest value.)
 - [ ] **Theme F** — naming / `.sh` extensions / grab-bag split (only caller-breaking one).
 - [ ] **Theme G** — def-style: recommend documenting "both allowed" in CLAUDE.md, no sweep.
 

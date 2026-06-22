@@ -262,8 +262,12 @@ shell-injection class + 13 evals; `tests/database-utils.bats` added.
 **A done** (7d5bac0 + 9ea48b0): `local` sweep — ~90 positionals localized across 9 files
 (command-subs split for SC2155; exports/lazy-caches skipped); no-leak regression tests.
 
-Open: **E** more dedupe merges · **F** naming/extension/grab-bag (= §6, only
-caller-breaking theme) · **G** def-style (document, don't sweep).
+**E done** (8f6cdc4 + 520c3d9): near-duplicate merges — timezone parametrized, nvidia
+toolkit shared-repo helper, apt-install/-quite collapsed, apt-setup-localrepo off-by-one
+fixed.
+
+Open: **F** naming/extension/grab-bag (= §6, only caller-breaking theme) · **G** def-style
+(document, don't sweep).
 
 ## My suggested order
 
