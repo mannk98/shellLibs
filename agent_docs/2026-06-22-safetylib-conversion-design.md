@@ -86,6 +86,17 @@ still need a live matching host — out of scope for CI.
   `disk-utils:disk-create-partition` — a later pass after the three big ones land.
 
 ## Status
-- [ ] nvidia-utils
-- [ ] docker-utils
-- [ ] network-utils
+- [x] nvidia-utils — 6 fns converted; dropped a dead `admin-updateRamdisk` call + a
+  leaking `set -e`. `tests/nvidia-utils.bats`. (commit 08ff0f1)
+- [x] docker-utils — mutating fns converted; removed the macvlan `eval`; fixed
+  `docker-swarm-inspectService` (`service` -> `docker service`). `tests/docker-utils.bats`. (8096c42)
+- [x] network-utils — ~20 fns converted (/etc writers, iptables, nmcli/ip/sysctl);
+  fixed `nmcliRestartIface` arg guard. `tests/network-utils.bats`. (94ea0bb)
+
+Gates after the sweep: `make test` 78/78, `make lint-ci` exit 0.
+
+### Follow-up (deliberately deferred — a later pass)
+- `nginxgen-utils` stays as-is (inspection module; only `nginxgen-createTemplate` writes,
+  to cwd, already idempotent — low value).
+- `cloudstack-utils`, `lpic1a`, `database-utils` (also has the CLI-password issue, §7),
+  `ssh-utils`, `git-utils`, `_other.sh`, `disk-utils:disk-create-partition` (mkfs/dd).

@@ -235,8 +235,12 @@ Pilots converted: `admin-swap-enable`, `admin-user-add-to-sudo`, `disk-mount-par
 `/etc/sudoers.d/<user>` drop-in (see §7). Plus an **exit-audit sweep** — every `exit` in a
 *sourced* file turned into `return` (see §4 follow-up).
 
-Open (next): convert the remaining destructive functions (network-utils, nvidia-utils,
-docker-utils, nginxgen-utils, …) — the last big item in the safety arc.
+**Conversion sweep (2026-06-22):** routed the remaining destructive functions through
+safetylib — `nvidia-utils` (08ff0f1), `docker-utils` (8096c42), `network-utils` (94ea0bb),
+each with a `tests/<file>.bats` dry-run suite. Plan + per-file catalog + deferred follow-up
+(cloudstack/lpic1a/database/ssh/git/disk-create) in
+`2026-06-22-safetylib-conversion-design.md`. With this, **the safety arc is closed** — the
+remaining files are the lower-value follow-up pass.
 
 ---
 
