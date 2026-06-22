@@ -15,3 +15,20 @@ setup() {
   [[ "$output" != *"20auto-upgrades"* ]] || return 1
   [[ "$output" == *"apt-disable-autoupdate"* ]] || return 1
 }
+
+# --- apt-install / apt-install-quite collapse (quiet is now a -q wrapper) ----
+
+@test "apt-install-quite passes -q to the package manager" {
+  checkOsID() { echo ubuntu; }
+  apt() { echo "apt $*"; }
+  run apt-install-quite somepkg
+  [[ "$output" == *"apt install -y -q somepkg"* ]] || return 1
+}
+
+@test "apt-install does NOT pass -q" {
+  checkOsID() { echo ubuntu; }
+  apt() { echo "apt $*"; }
+  run apt-install somepkg
+  [[ "$output" == *"apt install -y somepkg"* ]] || return 1
+  [[ "$output" != *"-q"* ]] || return 1
+}

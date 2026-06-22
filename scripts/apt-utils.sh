@@ -73,53 +73,37 @@ apt-show() {
   return 0
 }
 
-#Install package -q
-apt-install-quite() {
-  _apt_oscheck
-  #echo "$@"
-  [[ ${oscheck} == *"alpine"* ]] && {
-    for value in "$@"; do
-      apk add -y -q "${value}" || return 1
-      apk upgrade || return 1
-    done
-  }
-  [[ ${oscheck} == *"centos"* || ${oscheck} == *"almalinux"* || ${oscheck} == *"rocky"* ]] && {
-    for value in "$@"; do
-      yum install -y -q "${value}" || return 1
-    done
-  }
-  [[ ${oscheck} == *"debian"* || ${oscheck} == *"ubuntu"* ]] && {
-    for value in "$@"; do
-      echo "${value}"
-      apt install -y -q "${value}" || return 1
-    done
-  }
-
-  return 0
-}
-
+#Install package(s). Pass -q as the first arg for a quiet install.
 apt-install() {
   _apt_oscheck
-  #echo "$@"
+  local value
+  local -a q=()
+  [[ $1 == "-q" ]] && {
+    q=(-q)
+    shift
+  }
   [[ ${oscheck} == *"alpine"* ]] && {
     for value in "$@"; do
-      apk add -y "${value}" || return 1
+      apk add -y "${q[@]}" "${value}" || return 1
       apk upgrade || return 1
     done
   }
   [[ ${oscheck} == *"centos"* || ${oscheck} == *"almalinux"* || ${oscheck} == *"rocky"* ]] && {
     for value in "$@"; do
-      yum install -y "${value}" || return 1
+      yum install -y "${q[@]}" "${value}" || return 1
     done
   }
   [[ ${oscheck} == *"debian"* || ${oscheck} == *"ubuntu"* ]] && {
     for value in "$@"; do
       echo "${value}"
-      apt install -y "${value}" || return 1
+      apt install -y "${q[@]}" "${value}" || return 1
     done
   }
   return 0
 }
+
+# back-compat: the quiet variant is now `apt-install -q`.
+apt-install-quite() { apt-install -q "$@"; }
 
 #Remove package
 apt-remove() {
@@ -252,19 +236,15 @@ apt-setup-localrepo-debubuntu() {
 
   local localrepodir
   localrepodir=$(realpath -s "${1}")
-  local count=0
+  shift # $1 was the repo dir (captured above); the rest are the packages to fetch
 
   echo "Info: Clean apt cache..."
   sudo apt clean cache
 
   echo "Info: Download apps..."
+  local value
   for value in "$@"; do
-    ((count++))
-    [[ $count == '0' ]] && {
-      continue
-    }
     apt install --download-only -y "${value}"
-    #[[ $? != 0 ]] && return 1
   done
 
   mkdir -p "${localrepodir}"
@@ -296,14 +276,10 @@ apt-setup-localrepo-cenred() {
 
   local localrepodir="${1}"
   mkdir -p "${localrepodir}"
-  local count=0
+  shift # $1 was the repo dir (captured above); the rest are the packages to fetch
+  local value
   for value in "$@"; do
-    ((count++))
-    [[ $count == '0' ]] && {
-      continue
-    }
     yum install --downloadonly --downloaddir="${localrepodir}" "${value}"
-    #[[ $? != 0 ]] && return 1
   done
 
   cp -r /tmp/yum/yumcache/* "${localrepodir}"
