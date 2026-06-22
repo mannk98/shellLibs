@@ -18,7 +18,7 @@ function admin-timezone-set-GMT7() {
 }
 
 function admin-user-add-to-sudo() {
-  username=${1}
+  local username=${1}
   [[ $1 == "-h" || -z $1 ]] && {
     echo "Usage: sudo ${FUNCNAME[0]} <user_name>
            Note: This script need sudo permission to execute."
@@ -71,7 +71,7 @@ function admin-user-add-to-group() {
 }
 
 function admin-user-createnew() {
-  username=${1}
+  local username=${1}
   adduser "${username}"
 }
 
@@ -84,17 +84,17 @@ function admin-user-createsilent() {
 }
 
 function admin-user-changepass() {
-  username=${1}
+  local username=${1}
   passwd "${username}"
 }
 
 function admin-user-remove() {
-  username=${1}
+  local username=${1}
   deluser "${username}"
 }
 
 function admin-user-remove-with-home() {
-  username=${1}
+  local username=${1}
   deluser --remove-home "${username}"
 }
 
@@ -335,7 +335,7 @@ function admin-crontab-add() {
 }
 
 function admin-bluetooth-fix-pulseaudio() {
-  user=${1}
+  local user=${1}
   machinectl shell --uid "${user}"
   systemctl --user enable pulseaudio
   systemctl --user start pulseaudio

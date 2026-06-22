@@ -96,7 +96,8 @@ docker-find-container-from-hostpid() {
     echo "Missing host pid - write by thanhson.rf@gmail.com"
     return 1
   }
-  hostpid=${1}
+  local hostpid=${1}
+  local dnamespace
   dnamespace=$(grep -e docker "/proc/${hostpid}/cgroup" | head -n 1 | grep -ioEe '[^/]+$')
 
   [[ $dnamespace ]] || {
@@ -122,7 +123,7 @@ docker-find-container-from-hostpid() {
 
 # use to kill when container is blocked.
 docker-find-hostpid-from-containerName() {
-  containername=${1}
+  local containername=${1}
   ps auxw | grep "$(docker container ls | grep "${containername}" | awk '{print $1}')" | awk '{print $2}'
   #kill -9 12345678
 }
@@ -217,10 +218,10 @@ docker-updateLimitResource() {
     return 0
   }
 
-  conname=${1}
-  cpus=${2}
-  ram=${3}
-  ramAndSwap=${4}
+  local conname=${1}
+  local cpus=${2}
+  local ram=${3}
+  local ramAndSwap=${4}
 
   if _run docker update --cpus "${cpus}" -m "${ram}" --memory-swap "${ramAndSwap}" "${conname}"; then
     echo "Success update container metrics resource. Have a good day!"
@@ -233,7 +234,7 @@ docker-getIPInfo() {
     echo "Usage: ${FUNCNAME[0]} <container_name>"
     return 0
   }
-  conname=${1}
+  local conname=${1}
   docker inspect --format="{{range .NetworkSettings.Networks}}{{.IPAddress}}; {{end}}" "${conname}"
 }
 
@@ -242,7 +243,7 @@ docker-getBindInfo() {
     echo "Usage: ${FUNCNAME[0]} <container_name>"
     return 0
   }
-  conname=${1}
+  local conname=${1}
   echo "Type, Source, Des, Mode, RW, Propagation"
   #docker inspect --format="{{range .Mounts}}{{.}}; {{end}}" "${conname}"
   docker inspect --format="{{range .Mounts}} Type:{{.Type}} RW:{{.RW}} {{.Source}}:{{.Destination}}; {{end}}" "${conname}"
@@ -263,8 +264,8 @@ function docker-backup-volume() {
     echo "Usage: ${FUNCNAME[0]} <container_name_have_volume_need_to_backup> <path-of-volume-mount-inside-container>"
     return 0
   }
-  containername=${1}
-  volumeMountInside=${2}
+  local containername=${1}
+  local volumeMountInside=${2}
 
   _run docker run --rm --volumes-from "${containername}" -v "$(pwd)":/backup debian:12.5 tar cvf /backup/"${containername}".bak.tar -C "${volumeMountInside}" .
 }
@@ -275,8 +276,9 @@ function docker-restore-volume() {
 		(auto create restore_voulme_name if it's not existed )"
     return 0
   }
-  restoreVolumeName=${1}
-  backup_data_path_file_tar=${2}
+  local restoreVolumeName=${1}
+  local backup_data_path_file_tar=${2}
+  local filename
   filename=$(basename "$backup_data_path_file_tar")
 
   _confirm "Restore into volume ${restoreVolumeName} from ${backup_data_path_file_tar} (overwrites its contents)?" || return 1
@@ -305,6 +307,7 @@ function docker-commit() {
     echo "Usage: ${FUNCNAME[0]} <uuid_image/image_name:tag> <new_image_name:tag> [change_entry_point]"
     return 0
   }
+  local change=""
   [[ -n ${3} ]] && {
     change="--change='ENTRYPOINT ${3}'"
   }
@@ -350,9 +353,9 @@ function docker-commit-and-save() {
     echo "Usage: ${FUNCNAME[0]} <container-name/id> [tag] [/path/to/save]"
     return 0
   }
-  containername=$1
-  tag=$2
-  savedpath=$3
+  local containername=$1
+  local tag=$2
+  local savedpath=$3
 
   [[ -z ${savedpath} ]] && {
     savedpath="./"
@@ -374,7 +377,7 @@ function docker-swarm-init() {
     echo "Usage: ${FUNCNAME[0]} <MANAGER-IP>"
     return 0
   }
-  MANAGER_IP=${1}
+  local MANAGER_IP=${1}
   _run docker swarm init --advertise-addr "${MANAGER_IP}"
 }
 
@@ -387,8 +390,8 @@ function docker-swarm-join() {
     echo "Usage: ${FUNCNAME[0]} <MANAGER-IP> <token>"
     return 0
   }
-  MANAGER_IP=${1}
-  token=${2}
+  local MANAGER_IP=${1}
+  local token=${2}
   _run docker swarm join --token "${token}" "${MANAGER_IP}":2377
 }
 
@@ -401,7 +404,7 @@ function docker-swarm-inspectService() {
     echo "Usage: ${FUNCNAME[0]} <service_name>"
     return 0
   }
-  service_name=${1}
+  local service_name=${1}
   docker service inspect --pretty "${service_name}"
 }
 
@@ -410,8 +413,8 @@ function docker-swarm-scaleService() {
     echo "Usage: ${FUNCNAME[0]} <service_name> <scale_number>"
     return 0
   }
-  service_name=${1}
-  scale_number=${2}
+  local service_name=${1}
+  local scale_number=${2}
   _run docker service scale "${service_name}"="${scale_number}"
 }
 
@@ -420,7 +423,7 @@ function docker-swarm-removeService() {
     echo "Usage: ${FUNCNAME[0]} <service_name>"
     return 0
   }
-  service_name=${1}
+  local service_name=${1}
   _confirm "Remove swarm service ${service_name}?" || return 1
   _run docker service rm "${service_name}"
 }

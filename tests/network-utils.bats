@@ -60,3 +60,10 @@ setup() {
   [[ "$output" == *"DRY-RUN would run: nmcli con mod eth0"* ]] || return 1
   [[ "$output" == *"would ask"* ]] || return 1
 }
+
+@test "nmcliDisableCon does not leak con into the shell (local sweep)" {
+  # Direct call (not `run`); dry-run makes the nmcli call a no-op preview.
+  unset con
+  SHELLLIBS_DRYRUN=1 nmcliDisableCon myconn >/dev/null
+  [ -z "${con:-}" ] || return 1
+}

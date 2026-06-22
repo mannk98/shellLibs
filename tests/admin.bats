@@ -56,3 +56,11 @@ setup() {
   [[ "$output" == *"Usage:"* ]] || return 1
   [[ "$output" != *"SUDO-RAN"* ]] || return 1
 }
+
+@test "admin-user-createnew does not leak username into the shell (local sweep)" {
+  # Direct call (not `run`, whose subshell would mask a leak) with adduser mocked.
+  adduser() { :; }
+  unset username
+  admin-user-createnew alice
+  [ -z "${username:-}" ] || return 1
+}

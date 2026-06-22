@@ -149,9 +149,9 @@ nmcliWifiConnect2AP() {
 Only write config to /etc/network/interfaces"
     return 0
   }
-  ssid="${1}"
-  pass="${2}"
-  interface="${3}"
+  local ssid="${1}"
+  local pass="${2}"
+  local interface="${3}"
 
   if _run nmcli dev wifi con "${ssid}" password "${pass}" ifname "${interface}"; then
     log-step "Success connect to ${ssid} using ${interface}"
@@ -159,12 +159,12 @@ Only write config to /etc/network/interfaces"
 }
 
 nmcliDisableCon() {
-  con="${1}"
+  local con="${1}"
   _run nmcli connection down "${con}"
 }
 
 nmcliEnableCon() {
-  con="${1}"
+  local con="${1}"
   _run nmcli connection up "${con}"
 }
 
@@ -173,7 +173,7 @@ nmcliShowAllCons() {
 }
 
 nmcliShowConDetail() {
-  con="${1}"
+  local con="${1}"
   nmcli con show "${con}"
 }
 
@@ -477,6 +477,7 @@ nwIaceGetIPmask() {
 Get IP mask of network iface."
     return 0
   }
+  local bitMask
   bitMask=$(ip addr show "$1" | awk '/inet / {print $2}' | cut -d '/' -f 2)
 
   local ones=$((0xFFFFFFFF << (32 - bitMask))) # Create mask with leftmost 'bitmask' number of bits set to 1

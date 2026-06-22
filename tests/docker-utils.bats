@@ -53,3 +53,11 @@ setup() {
   run docker-swarm-inspectService web
   [[ "$output" == *"docker service inspect --pretty web"* ]] || return 1
 }
+
+@test "docker-getIPInfo does not leak conname into the shell (local sweep)" {
+  # Direct call (not `run`, whose subshell would mask a leak) with docker mocked.
+  docker() { :; }
+  unset conname
+  docker-getIPInfo web >/dev/null
+  [ -z "${conname:-}" ] || return 1
+}
