@@ -20,7 +20,10 @@ interactive muscle memory.
 - [x] **Theme C** — database-utils eval→argv via `_mysql_exec` (commit f01615c): 13 evals
   + the shell-injection class gone; `_confirm` on drop/truncate; arity/`mysql_native_password`/
   `psql -W` bugs fixed; REPLs kept; `tests/database-utils.bats` added.
-- [ ] **Theme A** — `local` sweep (~90 sites; database-utils already done as part of C).
+- [x] **Theme A** — `local` sweep DONE: git/checksystem/lpic1a/nginxgen/cloudstack/apt
+  (7d5bac0) + docker/network/admin (9ea48b0); ~90 positionals localized, command-subs
+  split for SC2155, intentional globals/exports/lazy-caches skipped; no-leak regression
+  tests added (call the fn directly, then assert the var is unset).
 - [ ] **Theme E (rest)** — timezone/nvidia-toolkit/apt-quiet merges, localrepo off-by-one.
 - [ ] **Theme F** — naming / `.sh` extensions / grab-bag split (only caller-breaking one).
 - [ ] **Theme G** — def-style: recommend documenting "both allowed" in CLAUDE.md, no sweep.
