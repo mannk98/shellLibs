@@ -256,8 +256,10 @@ disk-check-performance, admin changeUserSession/kernelInstall); `ssh-enable-root
 action + safetylib edit (the §7 sshd footgun); logshell spacing; git-utils branch-default
 bug; deduped `admin-apt-disable-autoupdate`.
 
-Open: **C** database-utils `eval`→argv via `_mysql_exec` (highest ROI; kills the
-SQL-injection class) · **A** `local` sweep (~90 sites) · **E** more dedupe merges · **F**
+**C done** (f01615c): database-utils `eval`→argv via `_mysql_exec` — killed the
+shell-injection class + 13 evals; `tests/database-utils.bats` added.
+
+Open: **A** `local` sweep (~90 sites) · **E** more dedupe merges · **F**
 naming/extension/grab-bag (= §6, only caller-breaking theme) · **G** def-style (document,
 don't sweep).
 

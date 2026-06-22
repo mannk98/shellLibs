@@ -17,8 +17,10 @@ interactive muscle memory.
     safetylib (`_need_root`/`_confirm`/`_backup_file`/`_run`).
   - Small bugs: logshell `<ts> [level]` spacing, git-utils `git-push-create-merge`
     branch-default-then-exec bug; deduped `admin-apt-disable-autoupdate` → alias.
-- [ ] **Theme C** — database-utils eval→argv. **NOT STARTED.**
-- [ ] **Theme A** — `local` sweep (~90 sites). **NOT STARTED.**
+- [x] **Theme C** — database-utils eval→argv via `_mysql_exec` (commit f01615c): 13 evals
+  + the shell-injection class gone; `_confirm` on drop/truncate; arity/`mysql_native_password`/
+  `psql -W` bugs fixed; REPLs kept; `tests/database-utils.bats` added.
+- [ ] **Theme A** — `local` sweep (~90 sites; database-utils already done as part of C).
 - [ ] **Theme E (rest)** — timezone/nvidia-toolkit/apt-quiet merges, localrepo off-by-one.
 - [ ] **Theme F** — naming / `.sh` extensions / grab-bag split (only caller-breaking one).
 - [ ] **Theme G** — def-style: recommend documenting "both allowed" in CLAUDE.md, no sweep.
@@ -29,7 +31,7 @@ Gates after quick wins: `make test` 94/94, `make lint-ci` exit 0.
 
 ## Remaining themes (prioritized)
 
-### Theme C — database-utils eval→argv  (highest structural ROI · M · medium risk)
+### Theme C — database-utils eval→argv  — ✅ DONE (commit f01615c)
 All 13 `mysql-*` build `command=$(cat <<EOF…); eval "$command"`. Extract one private
 `_mysql_exec '<SQL>'` that materializes the `MANNK_MYSQL_*` defaults once and runs
 `mysql … --execute="<SQL>"` as **argv via `_run`** (no eval → kills the SQL-injection
