@@ -49,7 +49,7 @@ setup() {
 @test "checkIfFileHaveText: -h prints usage and exits 0 (scans nothing)" {
   run checkIfFileHaveText -h
   [ "$status" -eq 0 ]
-  [[ "$output" == *"Usage:"* ]]
+  [[ "$output" == *"Usage:"* ]] || return 1
 }
 
 # --- 2. Env override --------------------------------------------------------

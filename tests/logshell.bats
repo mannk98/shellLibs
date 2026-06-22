@@ -16,22 +16,22 @@ setup() {
 @test "log-info prints the message tagged [info]" {
   run log-info "hello world"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"[info]"* ]]
-  [[ "$output" == *"hello world"* ]]
+  [[ "$output" == *"[info]"* ]] || return 1
+  [[ "$output" == *"hello world"* ]] || return 1
 }
 
 @test "log-warning prints the message tagged [warn]" {
   run log-warning "careful now"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"[warn]"* ]]
-  [[ "$output" == *"careful now"* ]]
+  [[ "$output" == *"[warn]"* ]] || return 1
+  [[ "$output" == *"careful now"* ]] || return 1
 }
 
 @test "log-error prints the message tagged [err]" {
   run log-error "boom"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"[err]"* ]]
-  [[ "$output" == *"boom"* ]]
+  [[ "$output" == *"[err]"* ]] || return 1
+  [[ "$output" == *"boom"* ]] || return 1
 }
 
 @test "log-error writes to stderr, not stdout" {
@@ -39,8 +39,8 @@ setup() {
   # --separate-stderr puts stdout in $output and stderr in $stderr.
   run --separate-stderr log-error "boom"
   [ -z "$output" ]
-  [[ "$stderr" == *"[err]"* ]]
-  [[ "$stderr" == *"boom"* ]]
+  [[ "$stderr" == *"[err]"* ]] || return 1
+  [[ "$stderr" == *"boom"* ]] || return 1
 }
 
 @test "LOG_LEVEL gating: at WARNING level, log-debug is silent" {
@@ -61,21 +61,21 @@ setup() {
 @test "LOG_LEVEL gating: at WARNING level, log-warning still shows" {
   LOG_LEVEL=$LOG_LEVEL_WARNING
   run log-warning "this should appear"
-  [[ "$output" == *"[warn]"* ]]
-  [[ "$output" == *"this should appear"* ]]
+  [[ "$output" == *"[warn]"* ]] || return 1
+  [[ "$output" == *"this should appear"* ]] || return 1
 }
 
 @test "LOG_LEVEL gating: at DEBUG level, log-debug shows" {
   # the debug tag is [dbg], not [debug]
   LOG_LEVEL=$LOG_LEVEL_DEBUG
   run log-debug "debug visible"
-  [[ "$output" == *"[dbg]"* ]]
-  [[ "$output" == *"debug visible"* ]]
+  [[ "$output" == *"[dbg]"* ]] || return 1
+  [[ "$output" == *"debug visible"* ]] || return 1
 }
 
 @test "log-info joins multiple arguments into one line" {
   run log-info one two three
-  [[ "$output" == *"one two three"* ]]
+  [[ "$output" == *"one two three"* ]] || return 1
 }
 
 @test "timestamp is well-formed on this host (no literal %N / 3N leak)" {
@@ -83,10 +83,10 @@ setup() {
   # YYYY-MM-DD HH:MM:SS stamp with no stray '%' or '3N'.
   run log-info "ts check"
   [ "$status" -eq 0 ]
-  [[ "$output" != *"3N"* ]]
-  [[ "$output" != *"%"* ]]
+  [[ "$output" != *"3N"* ]] || return 1
+  [[ "$output" != *"%"* ]] || return 1
   local re='[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}'
-  [[ "$output" =~ $re ]]
+  [[ "$output" =~ $re ]] || return 1
 }
 
 @test "timestamp regression: BSD/macOS date (no %3N) falls back, never leaks 3N" {
@@ -105,8 +105,8 @@ setup() {
   }
   run log-info "bsd"
   [ "$status" -eq 0 ]
-  [[ "$output" != *"3N"* ]]
-  [[ "$output" == *"2026-06-20 13:14:15"* ]]
+  [[ "$output" != *"3N"* ]] || return 1
+  [[ "$output" == *"2026-06-20 13:14:15"* ]] || return 1
 }
 
 @test "timestamp regression: GNU date (%3N works) keeps millisecond precision" {
@@ -123,6 +123,6 @@ setup() {
   }
   run log-info "gnu"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"2026-06-20 13:14:15,016"* ]]
-  [[ "$output" != *"3N"* ]]
+  [[ "$output" == *"2026-06-20 13:14:15,016"* ]] || return 1
+  [[ "$output" != *"3N"* ]] || return 1
 }

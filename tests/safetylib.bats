@@ -22,7 +22,7 @@ setup() {
   SHELLLIBS_DRYRUN=1 run _run touch "${BATS_TEST_TMPDIR}/nope"
   [ "$status" -eq 0 ]
   [ ! -e "${BATS_TEST_TMPDIR}/nope" ]
-  [[ "$output" == *"DRY-RUN"* ]]
+  [[ "$output" == *"DRY-RUN"* ]] || return 1
 }
 
 @test "_run returns the command's own exit status" {
@@ -132,7 +132,7 @@ setup() {
   SHELLLIBS_DRYRUN=1 run _write_file "$f" <<< "nope"
   [ "$status" -eq 0 ]
   [ ! -e "$f" ]
-  [[ "$output" == *"nope"* ]]
+  [[ "$output" == *"nope"* ]] || return 1
 }
 
 @test "_write_file backs up an existing file before overwriting" {
@@ -155,7 +155,7 @@ setup() {
 @test "_confirm in dry-run passes without prompting" {
   SHELLLIBS_DRYRUN=1 run _confirm "do thing?"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"DRY-RUN would ask"* ]]
+  [[ "$output" == *"DRY-RUN would ask"* ]] || return 1
 }
 
 @test "_confirm with SHELLLIBS_ASSUME_YES passes without prompting" {
@@ -166,7 +166,7 @@ setup() {
 @test "_confirm with no TTY and no ASSUME_YES refuses (returns 1)" {
   run _confirm "do thing?"
   [ "$status" -eq 1 ]
-  [[ "$output" == *"refused"* ]]
+  [[ "$output" == *"refused"* ]] || return 1
 }
 
 # --- _need_root ---
@@ -181,7 +181,7 @@ setup() {
   id() { echo 1000; }
   run _need_root
   [ "$status" -eq 1 ]
-  [[ "$output" == *"needs root"* ]]
+  [[ "$output" == *"needs root"* ]] || return 1
 }
 
 @test "_need_root in dry-run passes for non-root (mocked id)" {
@@ -200,7 +200,7 @@ setup() {
 @test "_need_cmd fails for a missing command" {
   run _need_cmd definitely_not_a_real_command_xyz
   [ "$status" -eq 1 ]
-  [[ "$output" == *"not installed"* ]]
+  [[ "$output" == *"not installed"* ]] || return 1
 }
 
 @test "_need_cmd with no argument returns 2" {
