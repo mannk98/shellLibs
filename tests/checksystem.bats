@@ -133,3 +133,37 @@ setup() {
   run bash -c "source '${SHELLLIBS_ROOT}/scripts/checksystem'; unknown_os; echo SURVIVED=\$?"
   [[ "$output" == *"SURVIVED=1"* ]] || return 1
 }
+
+# --- guard footguns: missing `return` + inverted `command -v` ---------------
+#
+# Two bugs share these functions: (1) the -h/-z guard prints usage but lacks a
+# `return`, so it falls through into the body; (2) the preflight is INVERTED —
+# `if command -v stress` aborts when stress IS present and runs it when ABSENT.
+# Presence is controlled host-independently by shadowing the tool with a shell
+# function (which `command -v` reports as present).
+
+@test "checkStressTestCpu runs stress when it is available (inverted check fixed)" {
+  stress() { echo "STRESS-RAN $*"; }
+  run checkStressTestCpu 2 5
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"STRESS-RAN --cpu 2 --timeout 5"* ]] || return 1
+}
+
+@test "checkStressTestCpu -h returns 0 with usage (no fall-through)" {
+  run checkStressTestCpu -h
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Use:"* ]] || return 1
+}
+
+@test "checkStressTestRam -h returns 0 with usage (no fall-through)" {
+  run checkStressTestRam -h
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Use:"* ]] || return 1
+}
+
+@test "checkZombieParents -h returns 0 without running pstree (no fall-through)" {
+  pstree() { echo "PSTREE-RAN"; }
+  run checkZombieParents -h
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"PSTREE-RAN"* ]] || return 1
+}

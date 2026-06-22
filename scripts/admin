@@ -245,6 +245,7 @@ function admin-getUUID() {
 function admin-changeUserSession() {
   [[ ${1} = "-h" || -z ${1} ]] && {
     echo "Usage: sudo ${FUNCNAME[0]} <user>"
+    return 0
   }
   sudo -u "${1}" bash
   # su - "${1}"
@@ -289,6 +290,7 @@ function admin-cgroupAvaiableOnSystem() {
 function admin-kernelInstallSpecificVersion() {
   [[ ${1} = "-h" || -z ${1} ]] && {
     echo "Usage: sudo ${FUNCNAME[0]} <kerner-version>"
+    return 0
   }
   while true; do
     read -rp "Do you wish to remove current kernel $(uname -r) ? " yn

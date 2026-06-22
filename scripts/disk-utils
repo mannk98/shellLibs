@@ -81,11 +81,12 @@ function disk-mount-partition() {
 }
 
 function disk-check-performance() {
-  [[ ${1} == "-h" || -z ${1} ]] && {
-    echo "Use: $FUNCNAME <Ram (GB)>"
+  [[ ${1} == "-h" ]] && {
+    echo "Use: $FUNCNAME   (read + write perf test on /dev/vda; needs hdparm)"
+    return 0
   }
 
-  if command -v hdparm; then
+  if ! command -v hdparm >/dev/null 2>&1; then
     echo "Install hdparm command first"
     return 1
   fi

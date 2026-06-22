@@ -48,3 +48,11 @@ setup() {
   [ "$status" -eq 0 ]
   [[ "$output" == *"SURVIVED"* ]] || return 1
 }
+
+@test "admin-changeUserSession -h returns 0 without running sudo (no fall-through)" {
+  sudo() { echo "SUDO-RAN $*"; }
+  run admin-changeUserSession -h
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Usage:"* ]] || return 1
+  [[ "$output" != *"SUDO-RAN"* ]] || return 1
+}

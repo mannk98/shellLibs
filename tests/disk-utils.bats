@@ -26,3 +26,21 @@ setup() {
   [[ "$output" == *"mount"* ]] || return 1
   [[ "$output" == *"would ask"* ]] || return 1
 }
+
+# --- disk-check-performance guard footguns (missing return + inverted check) ---
+# Mock hdparm/dd/rm so the test is host-independent and never writes a 2 GiB file.
+
+@test "disk-check-performance runs hdparm/dd when hdparm is available (inverted check fixed)" {
+  hdparm() { echo "HDPARM-RAN $*"; }
+  dd() { echo "DD-RAN"; }
+  rm() { echo "RM-RAN $*"; }
+  run disk-check-performance
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"HDPARM-RAN"* ]] || return 1
+}
+
+@test "disk-check-performance -h returns 0 with usage (no fall-through)" {
+  run disk-check-performance -h
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Use:"* ]] || return 1
+}

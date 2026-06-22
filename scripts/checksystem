@@ -139,6 +139,7 @@ function checkZombieListAll() {
 function checkZombieParents() {
   [[ -z $1 || $1 = "-h" ]] && {
     echo "Use: ${FUNCNAME[0]} <pid>"
+    return 0
   }
   pstree -p -s "${1}"
 }
@@ -150,9 +151,10 @@ function checkCpuClockSpeed() {
 function checkStressTestCpu() {
   [[ ${1} == "-h" || -z ${1} ]] && {
     echo "Use: ${FUNCNAME[0]} <num_cpus> <timeout (seconds)>"
+    return 0
   }
 
-  if command -v stress; then
+  if ! command -v stress >/dev/null 2>&1; then
     echo "Install stress command first"
     return 1
   fi
@@ -165,9 +167,10 @@ function checkStressTestCpu() {
 function checkStressTestRam() {
   [[ ${1} == "-h" || -z ${1} ]] && {
     echo "Use: ${FUNCNAME[0]} <Ram (GB)>"
+    return 0
   }
 
-  if command -v stress; then
+  if ! command -v stress >/dev/null 2>&1; then
     echo "Install stress command first"
     return 1
   fi
