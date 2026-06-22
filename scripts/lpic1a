@@ -1,8 +1,7 @@
 #!/bin/bash
 
-source "$(which logshell)"
-source "$(which checksystem)"
-#source ./checksystem
+command -v log-run   >/dev/null 2>&1 || source "$(command -v logshell    2>/dev/null || echo "$(dirname "${BASH_SOURCE[0]}")/logshell")"
+command -v checkOsID >/dev/null 2>&1 || source "$(command -v checksystem 2>/dev/null || echo "$(dirname "${BASH_SOURCE[0]}")/checksystem")"
 
 checkPcidev() {
   dev="${1}"

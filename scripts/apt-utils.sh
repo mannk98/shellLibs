@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source "$(which checksystem)"
+command -v checkOsID >/dev/null 2>&1 || source "$(command -v checksystem 2>/dev/null || echo "$(dirname "${BASH_SOURCE[0]}")/checksystem")"
 
 # Lazily populate $oscheck on first use — avoids reading /etc/os-release at every
 # shell startup. Functions below call this at entry; subsequent calls are free.
