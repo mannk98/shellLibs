@@ -244,6 +244,23 @@ remaining files are the lower-value follow-up pass.
 
 ---
 
+## 13. Function-structure tidy-up  ⏳ quick wins done
+
+**Effort:** S–M per theme — **Status:** quick wins shipped; C/A/E/F/G open
+
+Full audit + prioritized themes in [`2026-06-22-structure-tidyup-audit.md`](./2026-06-22-structure-tidyup-audit.md).
+
+Done (quick wins): guarded source headers in apt-utils.sh/lpic1a/cloudstack-utils;
+fall-through-guard + inverted-`command -v` fixes (checksystem stress/zombie,
+disk-check-performance, admin changeUserSession/kernelInstall); `ssh-enable-root` explicit
+action + safetylib edit (the §7 sshd footgun); logshell spacing; git-utils branch-default
+bug; deduped `admin-apt-disable-autoupdate`.
+
+Open: **C** database-utils `eval`→argv via `_mysql_exec` (highest ROI; kills the
+SQL-injection class) · **A** `local` sweep (~90 sites) · **E** more dedupe merges · **F**
+naming/extension/grab-bag (= §6, only caller-breaking theme) · **G** def-style (document,
+don't sweep).
+
 ## My suggested order
 
 1. **§1 shellcheck + §4 bug fixes + Buckets B/C** ✅ done.

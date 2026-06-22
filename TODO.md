@@ -7,12 +7,13 @@ this file is the quick backlog.
 ## Status (resume point — 2026-06-22)
 
 On **`dev`** (`origin/dev` @ `144e1de`; local `dev` is ahead with the run below, not yet
-pushed). Gates: `make test` → **78/78 green**, `make lint-ci` → **exit 0**. Dev machine is
+pushed). Gates: `make test` → **94/94 green**, `make lint-ci` → **exit 0**. Dev machine is
 macOS (bash 3.2); the library runs on Linux. To re-orient:
 `agent_docs/improvement-proposals.md` (deep menu) + the dated
-`agent_docs/2026-06-*-safetylib-*` design/plan docs.
+`agent_docs/2026-06-*-safetylib-*` + `2026-06-22-structure-tidyup-audit.md` design/plan docs.
 
-**Shipped this run (local `dev`, closes the safety arc):**
+**Shipped this run (local `dev`, closes the safety arc + structure quick-wins):**
+- **Structure tidy-up — quick wins** (commits 3015329 / 4bfbc0a / 849178c / f01bb8d) from the `scripts/` audit (`agent_docs/2026-06-22-structure-tidyup-audit.md`): (a) guarded source headers in apt-utils.sh/lpic1a/cloudstack-utils; (b) fall-through guards + inverted `command -v` in checksystem (`checkZombieParents`/`checkStressTestCpu`/`checkStressTestRam`), disk-utils (`disk-check-performance`), admin (`changeUserSession`/`kernelInstallSpecificVersion`); (c) `ssh-enable-root` now needs an explicit action (no silent root-enable) + edits sshd_config via safetylib; (d) logshell `<ts> [level]` spacing, git-utils branch-default-then-exec bug, deduped `admin-apt-disable-autoupdate`→alias. **Remaining audit themes (C database-utils eval→argv, A local-sweep, E more merges, F renames, G def-style) NOT started — see the audit doc.**
 - **Exit audit** — swept every `exit` in a *sourced* file (they kill the user's interactive shell) and turned them into `return`: `admin-crontab-add` `-h` guard, `checksystem`'s `unknown_os` (+ its `checkOsDistro` callers now propagate the failure), and four `cd … || exit` sites in `network-utils:nwSetupAccessPoint` + one in `apt-utils.sh`. `ssh-utils` hits are remote `ssh … exit` (not shell exits); `install.sh` is an executed script (correct). RED tests via the `bash -c … ; echo SURVIVED` sentinel.
 - **sudoers hardening** — `admin-user-add-to-sudo` now writes a per-user `/etc/sudoers.d/<user>` drop-in (validated with `visudo -cf` in a scratch file first, then `chmod 0440`) instead of appending `NOPASSWD:ALL` to the monolithic `/etc/sudoers` (a bad edit there can lock you out of sudo). All via `_write_file`/`_run`, so dry-run previews it.
 - **Conversion sweep** — routed the remaining destructive functions through safetylib across `nvidia-utils` (08ff0f1), `docker-utils` (8096c42), `network-utils` (94ea0bb): `_run`/`_write_file`/`_append_line` + `_need_root`/`_need_cmd`/`_confirm`, each with a `tests/<file>.bats` dry-run suite. Folded-in fixes: dropped nvidia's dead `admin-updateRamdisk` call + a leaking `set -e`; removed docker macvlan's `eval`; fixed `docker-swarm-inspectService` (`service`→`docker service`) and `nmcliRestartIface`'s arg guard. Plan/status: `agent_docs/2026-06-22-safetylib-conversion-design.md`.
@@ -35,6 +36,16 @@ macOS (bash 3.2); the library runs on Linux. To re-orient:
 - [x] **`install.sh:30`** — wrap the legacy `rm -f "$(which …)"` apt-port cleanup in `_run` *(final-review follow-up)*.
 - [x] **`_append_line /etc/sudoers`** — migrated `admin-user-add-to-sudo` to a `visudo -cf`-validated `/etc/sudoers.d/<user>` drop-in (see improvement-proposals §7).
 - [x] **Audit `exit` in sourced functions** — swept and fixed all 7 real sites (`admin`, `checksystem`, `network-utils` ×4, `apt-utils.sh`); `ssh-utils`/`install.sh` hits are non-bugs. *(final-review follow-up)*
+
+## Structure tidy-up (audit `agent_docs/2026-06-22-structure-tidyup-audit.md`)
+
+Quick wins shipped (see above). Remaining, in recommended order:
+
+- [ ] **Theme C — database-utils eval→argv** (highest ROI): one `_mysql_exec '<SQL>'` helper running argv via `_run` (kills 13 evals + the injection class + dedups the grant trio). Keep `mysql-connect`/`psql-connect` as interactive REPLs; `_confirm` on drop/truncate; conditional `-p` token; fix the arity + `use_native_pass` + `psql -W` bugs; add a dry-run bats suite. Do its `local` sweep here too.
+- [ ] **Theme A — `local` sweep** (~90 sites): skip `MANNK_MYSQL_*`/`GOPRIVATE` exports + lazy-ensurer cached globals (`$oscheck`/`$nginxgenConName`/`_LOGSHELL_HAS_NANOS`).
+- [ ] **Theme E (rest) — merges**: timezone GMT0/GMT7, nvidia toolkit pair, apt-install/-quite, the two apt-setup-localrepo (+ count-loop off-by-one), cloudstack TOML→`nginxgen-createTemplate`.
+- [ ] **Theme F — naming / `.sh` extensions / grab-bag split** (only caller-breaking theme; = improvement-proposals §6): one clearly-messaged rename commit + CLAUDE.md table update + aliases. Never rename logshell/checksystem/safetylib (install.sh sources them by relative path).
+- [ ] **Theme G — def-style**: document "both `function f()` and `f()` allowed" in CLAUDE.md instead of a sweep.
 
 ## Ideas — new capability / UX (when the safety arc feels done)
 
