@@ -81,7 +81,11 @@ Every public function starts with the same guard:
 }
 ```
 
-`$FUNCNAME` (or `${FUNCNAME[0]}`) is used instead of hard-coding the name — preserve that when refactoring. Many functions also `echo` the full command string before `eval`-ing it (see `database-utils`) so the user can see what ran.
+`$FUNCNAME` (or `${FUNCNAME[0]}`) is used instead of hard-coding the name — preserve that when refactoring.
+
+**Definition style.** Both `function foo() { … }` and `foo() { … }` are used across the repo and **both are accepted** — don't churn a file just to normalize this. Match the surrounding file when adding a function.
+
+**Destructive ops go through `safetylib`, not `eval`.** New mutating code routes commands through `_run` (argv, no `eval`) and file edits through `_write_file`/`_append_line` — so everything is previewable under `SHELLLIBS_DRYRUN` (see the converted `admin`, `docker-utils`, `network-utils`, `nvidia-utils`, `database-utils`). The old "echo the command string then `eval` it" pattern has been removed; don't reintroduce it.
 
 ### Runtime requirements
 

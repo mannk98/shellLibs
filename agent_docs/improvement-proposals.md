@@ -266,8 +266,11 @@ shell-injection class + 13 evals; `tests/database-utils.bats` added.
 toolkit shared-repo helper, apt-install/-quite collapsed, apt-setup-localrepo off-by-one
 fixed.
 
-Open: **F** naming/extension/grab-bag (= §6, only caller-breaking theme) · **G** def-style
-(document, don't sweep).
+**G done**: documented "both `function f()`/`f()` allowed" + the eval→safetylib rule in
+CLAUDE.md (no sweep).
+
+Open: **F** naming/extension/grab-bag (= §6, only caller-breaking theme — needs an explicit
+go-ahead since renaming files breaks `source "$(which X)"` callers + muscle memory).
 
 ## My suggested order
 

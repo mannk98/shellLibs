@@ -28,7 +28,8 @@ interactive muscle memory.
   collapse + apt-setup-localrepo off-by-one fix (520c3d9). (cloudstack TOML→nginxgen and
   the check-systemd dup deferred — lowest value.)
 - [ ] **Theme F** — naming / `.sh` extensions / grab-bag split (only caller-breaking one).
-- [ ] **Theme G** — def-style: recommend documenting "both allowed" in CLAUDE.md, no sweep.
+- [x] **Theme G** — documented "both `function f()` and `f()` allowed" + the
+  eval→safetylib rule in CLAUDE.md (no sweep, as recommended).
 
 Gates after quick wins: `make test` 94/94, `make lint-ci` exit 0.
 
