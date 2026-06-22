@@ -27,7 +27,7 @@ log-info "Delete old source at /bin"
 
 [[ -e "/bin/apt-port" ]] && {
     for file in ./scripts/*; do
-    	rm -f "$(which "${file##*/}")"
+    	_run rm -f "$(which "${file##*/}")"
     done
 }
 
