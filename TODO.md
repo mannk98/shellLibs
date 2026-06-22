@@ -4,9 +4,22 @@ Short "what's next" view. The deep, historical menu (with done-status and ration
 lives in [agent_docs/improvement-proposals.md](agent_docs/improvement-proposals.md);
 this file is the quick backlog.
 
+## Status (resume point — 2026-06-22)
+
+Everything is on **`dev`**, merged and pushed (`origin/dev` @ `144e1de`).
+Gates: `make test` → **59/59 green**, `make lint-ci` → **exit 0**. Dev machine is macOS
+(bash 3.2); the library runs on Linux. To re-orient: `agent_docs/improvement-proposals.md`
+(deep menu) + the dated `agent_docs/2026-06-*-safetylib-*` design/plan docs.
+
+**Shipped this run:**
+- **safetylib v1** — `scripts/safetylib`: `_run` / `_append_line` / `_write_file` / `_backup_file`, gated by `SHELLLIBS_DRYRUN`; converted 5 destructive pilots (admin-swap-enable, admin-user-add-to-sudo, disk-mount-partition, kvm-nat-port, install.sh). Plus a `%3N` timestamp portability fix in `logshell`.
+- **CI** — `.github/workflows/ci.yml`: `make lint-ci` + `make test` on push/PR.
+- **safetylib v2** — `_confirm` (+`SHELLLIBS_ASSUME_YES`), `_need_root`, `_need_cmd` (advisory in dry-run); wired into the same 5 pilots; hardened every bats `[[ ]]` assertion with `|| return 1` (bats `set -e` skips bare `[[ ]]`).
+- **Bug fix** — `kvm-nat-port` DNAT now uses `${ip_of_vm}` (was hard-coded to the example IP).
+
 ## Now
 
-- [ ] **CI (GitHub Actions)** — run `make lint-ci` + `make test` on every push/PR. *(in progress)*
+- [x] **CI (GitHub Actions)** — `make lint-ci` + `make test` on every push/PR. *(shipped; confirm the first Actions run on GitHub is green — tweak if a runner version differs)*
 
 ## Next — safety arc (continue `safetylib`)
 
