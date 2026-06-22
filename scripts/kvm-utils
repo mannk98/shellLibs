@@ -12,6 +12,10 @@ function kvm-nat-port() {
   ip_of_vm=$2
   port_vm=$3
   port_host=$4
+  _need_root || return 1
+  _need_cmd iptables || return 1
+  _confirm "Add iptables NAT: host port ${port_host} -> ${ip_of_vm}:${port_vm}?" || return 1
+
   _run sudo iptables -I FORWARD -o "${virbr_of_vm}" -d "${ip_of_vm}" -p tcp --dport "${port_vm}" -j ACCEPT
   _run sudo iptables -t nat -I PREROUTING -p tcp --dport "${port_host}" -j DNAT --to "192.168.122.10:${port_vm}"
 }

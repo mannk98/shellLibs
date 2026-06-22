@@ -10,13 +10,14 @@ setup() {
 @test "kvm-nat-port -h prints usage and returns 0" {
   run kvm-nat-port -h
   [ "$status" -eq 0 ]
-  [[ "$output" == *"Use:"* ]]
+  [[ "$output" == *"Use:"* ]] || return 1
 }
 
 @test "kvm-nat-port (dry-run) previews both iptables rules, runs nothing" {
   SHELLLIBS_DRYRUN=1 run kvm-nat-port virbr0 192.168.122.10 3389 3389
   [ "$status" -eq 0 ]
-  [[ "$output" == *"DRY-RUN"* ]]
-  [[ "$output" == *"iptables"* ]]
-  [[ "$output" == *"PREROUTING"* ]]
+  [[ "$output" == *"DRY-RUN"* ]] || return 1
+  [[ "$output" == *"iptables"* ]] || return 1
+  [[ "$output" == *"PREROUTING"* ]] || return 1
+  [[ "$output" == *"would ask"* ]] || return 1
 }
