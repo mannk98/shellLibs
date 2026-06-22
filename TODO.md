@@ -47,7 +47,7 @@ Quick wins shipped (see above). Remaining, in recommended order:
 - [x] **Theme C — database-utils eval→argv** (commit f01615c): `_mysql_exec` argv helper killed 13 evals + the injection class + dedup; `_confirm` on drop/truncate; arity/`mysql_native_password`/`psql -W` bugs fixed; REPLs kept; `tests/database-utils.bats` added.
 - [x] **Theme A — `local` sweep** (commits 7d5bac0 + 9ea48b0): ~90 positionals localized across 9 files; command-subs split for SC2155; intentional exports/lazy-caches skipped; no-leak regression tests added.
 - [x] **Theme E — merges** (8f6cdc4 + 520c3d9): timezone GMT0/GMT7 parametrized, nvidia toolkit shared-repo helper, apt-install/-quite collapsed, apt-setup-localrepo off-by-one fixed. cloudstack TOML→`nginxgen-createTemplate` + check-systemd dup deferred (lowest value).
-- [ ] **Theme F — naming / `.sh` extensions / grab-bag split** (only caller-breaking theme; = improvement-proposals §6): one clearly-messaged rename commit + CLAUDE.md table update + aliases. Never rename logshell/checksystem/safetylib (install.sh sources them by relative path).
+- [~] **Theme F — naming / `.sh` extensions / grab-bag split** — **DEFERRED by choice (2026-06-22)**: only caller-breaking theme, churny polish, low value-per-effort; high-value tidy-up (A/C/E/G + quick-wins) already done. If revisited: one clearly-messaged rename commit + CLAUDE.md table update + back-compat aliases. Never rename logshell/checksystem/safetylib (install.sh sources them by relative path).
 - [x] **Theme G — def-style**: documented "both `function f()` and `f()` allowed" + the eval→safetylib convention in CLAUDE.md (no sweep).
 
 ## Ideas — new capability / UX (when the safety arc feels done)

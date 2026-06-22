@@ -27,7 +27,12 @@ interactive muscle memory.
 - [x] **Theme E** — timezone GMT0/GMT7 + nvidia-toolkit dedup (8f6cdc4); apt-install/-quite
   collapse + apt-setup-localrepo off-by-one fix (520c3d9). (cloudstack TOML→nginxgen and
   the check-systemd dup deferred — lowest value.)
-- [ ] **Theme F** — naming / `.sh` extensions / grab-bag split (only caller-breaking one).
+- [~] **Theme F** — naming / `.sh` extensions / grab-bag split (only caller-breaking one).
+  **DEFERRED BY CHOICE (2026-06-22):** the high-value tidy-up (A/C/E/G + quick-wins) is
+  done; F is churny polish that breaks `source "$(which X)"` + muscle memory, so we
+  stopped. Revisit only if/when the churn is worth it (then: one clearly-messaged rename
+  commit, back-compat aliases, CLAUDE.md module-table update; never rename
+  logshell/checksystem/safetylib — install.sh sources them by relative path).
 - [x] **Theme G** — documented "both `function f()` and `f()` allowed" + the
   eval→safetylib rule in CLAUDE.md (no sweep, as recommended).
 
