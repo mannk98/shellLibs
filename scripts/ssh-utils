@@ -1,5 +1,7 @@
 #!/bin/bash
 
+command -v _run >/dev/null 2>&1 || source "$(command -v safetylib 2>/dev/null || echo "$(dirname "${BASH_SOURCE[0]}")/safetylib")"
+
 # Text formatting and colors
 BOLD="\033[1m"
 RED="\033[0;31m"
@@ -135,51 +137,46 @@ function ssh-copy-key() {
 }
 
 function ssh-enable-root() {
-  [[ "$1" == "-h" ]] && {
-    echo -e "${BOLD}Usage:${NC} sudo ${FUNCNAME[0]} [enable|disable]"
-    echo -e "\nEnables or disables root login via SSH"
+  # Require an explicit action — a bare call used to default to "enable", silently
+  # turning ON root SSH login on a help/typo. Now it prints usage instead.
+  [[ "$1" == "-h" || -z "$1" ]] && {
+    echo -e "${BOLD}Usage:${NC} sudo ${FUNCNAME[0]} <enable|disable>"
+    echo -e "\nEnables or disables root login via SSH (edits sshd_config + restarts SSH)"
     return 0
   }
-  
-  if [[ $EUID -ne 0 ]]; then
-    echo -e "${RED}Error: This command must be run as root${NC}" >&2
-    return 1
-  fi
-  
-  local action="${1:-enable}"
-  local config_file="/etc/ssh/sshd_config"
-  local backup_file
-  backup_file="${config_file}.bak.$(date +%Y%m%d%H%M%S)"
-  
-  if [[ ! -f "$config_file" ]]; then
-    echo -e "${RED}Error: SSH config file not found at ${config_file}${NC}" >&2
-    return 1
-  fi
-  
-  # Create backup
-  cp -p "$config_file" "$backup_file"
-  echo -e "${YELLOW}Backup created at ${backup_file}${NC}"
-  
+
+  _need_root || return 1
+
+  local action="$1"
+  # Path is overridable for testing; defaults to the real sshd_config.
+  local config_file="${SHELLLIBS_SSHD_CONFIG:-/etc/ssh/sshd_config}"
+  local value
   case "$action" in
-    enable)
-      sed -i 's/^#*PermitRootLogin.*/PermitRootLogin yes/' "$config_file"
-      echo -e "${GREEN}Enabled root login via SSH${NC}"
-      ;;
-    disable)
-      sed -i 's/^#*PermitRootLogin.*/PermitRootLogin no/' "$config_file"
-      echo -e "${GREEN}Disabled root login via SSH${NC}"
-      ;;
+    enable) value="yes" ;;
+    disable) value="no" ;;
     *)
       echo -e "${RED}Error: Invalid action. Use 'enable' or 'disable'${NC}" >&2
       return 1
       ;;
   esac
-  
+
+  if [[ ! -f "$config_file" ]]; then
+    echo -e "${RED}Error: SSH config file not found at ${config_file}${NC}" >&2
+    return 1
+  fi
+
+  # Route the destructive edit through safetylib: previewable (SHELLLIBS_DRYRUN),
+  # backed up first, and confirmed before mutating a security-sensitive file.
+  _confirm "Set 'PermitRootLogin ${value}' in ${config_file} and restart SSH?" || return 1
+  _backup_file "$config_file"
+  _run sed -i "s/^#*PermitRootLogin.*/PermitRootLogin ${value}/" "$config_file"
+  echo -e "${GREEN}Set PermitRootLogin ${value} in ${config_file}${NC}"
+
   # Restart SSH service if available
-  if command -v systemctl &> /dev/null; then
-    systemctl restart sshd
-  elif command -v service &> /dev/null; then
-    service ssh restart
+  if command -v systemctl &>/dev/null; then
+    _run systemctl restart sshd
+  elif command -v service &>/dev/null; then
+    _run service ssh restart
   else
     echo -e "${YELLOW}Please restart the SSH service for changes to take effect${NC}"
   fi
