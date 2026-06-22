@@ -1,5 +1,9 @@
 #!/bin/bash
 
+command -v log-run   >/dev/null 2>&1 || source "$(command -v logshell    2>/dev/null || echo "$(dirname "${BASH_SOURCE[0]}")/logshell")"
+command -v checkOsID >/dev/null 2>&1 || source "$(command -v checksystem 2>/dev/null || echo "$(dirname "${BASH_SOURCE[0]}")/checksystem")"
+command -v _run      >/dev/null 2>&1 || source "$(command -v safetylib   2>/dev/null || echo "$(dirname "${BASH_SOURCE[0]}")/safetylib")"
+
 #check if container is running or not
 #arg: path to container name
 function docker-container-is-running() {
@@ -48,7 +52,7 @@ function docker-network-create() {
   : "${MYNETWORK:=mynetwork}"
   : "${MYNETWORK_SUBNET:=172.172.0.0/16}"
 
-  docker network create -o "com.docker.network.bridge.name"="${MYNETWORK}" --subnet="${MYNETWORK_SUBNET}" "${MYNETWORK}" && return 0 || return 1
+  _run docker network create -o "com.docker.network.bridge.name"="${MYNETWORK}" --subnet="${MYNETWORK_SUBNET}" "${MYNETWORK}"
 }
 # docker network create -o "com.docker.network.bridge.name"="MYNETWORK" --subnet="172.172.0.0/24" MYNETWORK
 
@@ -59,7 +63,7 @@ function docker-network-create-overlay() {
   }
   local name=$1
   local subnet=$2
-  docker network create --scope=swarm --driver overlay --attachable --subnet="${subnet}" "${name}" && return 0 || return 1
+  _run docker network create --scope=swarm --driver overlay --attachable --subnet="${subnet}" "${name}"
 }
 
 function docker-network-create-bridge-scopeSwarm() {
@@ -69,7 +73,7 @@ function docker-network-create-bridge-scopeSwarm() {
   }
   local name=$1
   local subnet=$2
-  docker network create --scope=swarm --driver bridge --attachable --subnet="${subnet}" "${name}" && return 0 || return 1
+  _run docker network create --scope=swarm --driver bridge --attachable --subnet="${subnet}" "${name}"
 }
 
 #args: [subnet]
@@ -124,37 +128,46 @@ docker-find-hostpid-from-containerName() {
 }
 
 docker-kill-container-by-hostpid() {
-  containername=${1}
+  [[ ! $1 || $1 == "-h" ]] && {
+    echo "Usage: sudo ${FUNCNAME[0]} <container-name>
+		kill -9 the host process backing a blocked container."
+    return 0
+  }
+  local containername=${1} id
   id=$(ps auxw | grep "$(docker container ls | grep "${containername}" | awk '{print $1}')" | awk '{print $2}')
-  kill -9 "${id}"
+  [[ -z ${id} ]] && { log-error "no host pid found for container ${containername}"; return 1; }
+  _confirm "kill -9 host pid ${id} (container ${containername})?" || return 1
+  _run kill -9 "${id}"
 }
 
 docker-change-rootdir() {
-  [[ $1 == "-h" ]] && {
-    echo "Usage: sudo ${FUNCNAME[0]} <new-docker-root-dir>"
+  [[ $1 == "-h" || -z $1 ]] && {
+    echo "Usage: sudo ${FUNCNAME[0]} <new-docker-root-dir>
+		Stops Docker, copies its data-root to the new path, rewrites
+		/etc/docker/daemon.json, and restarts Docker. Needs root."
     return 0
   }
 
-  newpath=${1}
+  _need_root || return 1
+  _need_cmd docker || return 1
+  local newpath=${1} oldpath
   oldpath=$(docker info -f '{{ .DockerRootDir}}')
+  _confirm "Stop Docker, copy root ${oldpath} -> ${newpath}, and rewrite /etc/docker/daemon.json?" || return 1
 
-  log-info "Stoping docker service."
-  systemctl stop docker docker.socket containerd
-  #systemctl stop docker.socket
-  #systemctl stop containerd
+  log-info "Stopping docker service."
+  _run systemctl stop docker docker.socket containerd
 
   log-info "Copy old root $oldpath to $newpath ..."
   # if folder exist, do nothing
   [[ -d ${newpath} ]] && {
     log-warning "${newpath} is already existed, use exist, not copy data from old root"
   } || {
-    mkdir -p "${newpath}"
-    cp -rf "${oldpath}" "${newpath}"
+    _run mkdir -p "${newpath}"
+    _run cp -rf "${oldpath}" "${newpath}"
   }
 
-  touch /etc/docker/daemon.json
-
   log-info "Create new config at /etc/docker/daemon.json"
+  local config
   [[ $(checkIfCommandExist nvidia-docker) == "yes" ]] && {
     config="
 		{
@@ -173,8 +186,8 @@ docker-change-rootdir() {
         }"
   }
 
-  echo "${config}" >/etc/docker/daemon.json
-  systemctl restart docker
+  _write_file /etc/docker/daemon.json <<<"${config}"
+  _run systemctl restart docker
   log-info "Apply new config, restarting docker service, new root dir is: "
   docker info -f '{{ .DockerRootDir}}'
 }
@@ -182,12 +195,12 @@ docker-change-rootdir() {
 docker-updateRestartRules() {
   [[ -n $(docker ps -q) ]] && {
     # shellcheck disable=SC2046  # intentional: multi-container-ID word splitting
-    docker update --restart=always $(docker ps -q)
+    _run docker update --restart=always $(docker ps -q)
   }
 
   [[ -n $(docker ps --filter status=exited -q) ]] && {
     # shellcheck disable=SC2046  # intentional: multi-container-ID word splitting
-    docker update --restart=no $(docker ps --filter status=exited -q)
+    _run docker update --restart=no $(docker ps --filter status=exited -q)
   }
   echo "Have a good day <3"
 }
@@ -209,7 +222,7 @@ docker-updateLimitResource() {
   ram=${3}
   ramAndSwap=${4}
 
-  if docker update --cpus "${cpus}" -m "${ram}" --memory-swap "${ramAndSwap}" "${conname}"; then
+  if _run docker update --cpus "${cpus}" -m "${ram}" --memory-swap "${ramAndSwap}" "${conname}"; then
     echo "Success update container metrics resource. Have a good day!"
   fi
 }
@@ -253,7 +266,7 @@ function docker-backup-volume() {
   containername=${1}
   volumeMountInside=${2}
 
-  docker run --rm --volumes-from "${containername}" -v "$(pwd)":/backup debian:12.5 tar cvf /backup/"${containername}".bak.tar -C "${volumeMountInside}" .
+  _run docker run --rm --volumes-from "${containername}" -v "$(pwd)":/backup debian:12.5 tar cvf /backup/"${containername}".bak.tar -C "${volumeMountInside}" .
 }
 
 function docker-restore-volume() {
@@ -266,8 +279,9 @@ function docker-restore-volume() {
   backup_data_path_file_tar=${2}
   filename=$(basename "$backup_data_path_file_tar")
 
-  docker volume create "${restoreVolumeName}"
-  docker run --rm -v "${restoreVolumeName}":/volume_data -v "${backup_data_path_file_tar}":/backup/"$filename" debian:12.5 bash -c "cd /volume_data && tar xvf /backup/""$filename"" --strip 1"
+  _confirm "Restore into volume ${restoreVolumeName} from ${backup_data_path_file_tar} (overwrites its contents)?" || return 1
+  _run docker volume create "${restoreVolumeName}"
+  _run docker run --rm -v "${restoreVolumeName}":/volume_data -v "${backup_data_path_file_tar}":/backup/"$filename" debian:12.5 bash -c "cd /volume_data && tar xvf /backup/""$filename"" --strip 1"
 }
 
 function docker-save-image() {
@@ -276,6 +290,12 @@ function docker-save-image() {
     return 0
   }
   local outfile="${2:-myimage_latest.tar.gz}"
+  # `docker save | gzip > file` is a pipeline (not argv), so it can't go through
+  # _run; guard the file write by hand so dry-run still previews it.
+  if [[ -n ${SHELLLIBS_DRYRUN:-} ]]; then
+    log-run "DRY-RUN would run: docker save ${1} | gzip > ${outfile}"
+    return 0
+  fi
   docker save "${1}" | gzip >"${outfile}"
 }
 
@@ -288,17 +308,23 @@ function docker-commit() {
   [[ -n ${3} ]] && {
     change="--change='ENTRYPOINT ${3}'"
   }
-  docker commit "${1}" "${2}" "${change}"
+  _run docker commit "${1}" "${2}" "${change}"
 }
 
 function docker-daemon-restart() {
-  sudo systemctl daemon-reload
-  sudo systemctl restart docker
+  [[ $1 == "-h" ]] && {
+    echo "Usage: sudo ${FUNCNAME[0]}
+		systemctl daemon-reload + restart docker. Needs root."
+    return 0
+  }
+  _need_root || return 1
+  _run systemctl daemon-reload
+  _run systemctl restart docker
 }
 
 function docker-network-create-macvlan() {
   [[ ! $1 || $1 == "-h" ]] && {
-    echo "Use: ${FUNCNAME[0]} <parent> <network-name> <host_sub-net> <host_gate-way> <dockerdhcp_ip_range> <hostIP> <macvlan_mode>
+    echo "Use: ${FUNCNAME[0]} <parent> <network-name> <host_sub-net> <host_gate-way> <dockerdhcp_ip_range> <macvlan_mode>
         Example: docker-network-create-macvlan enp1s0 macvlan.enp1s0 10.6.200.0/22 10.6.200.1 10.6.203.236/30 passthru"
     return 1
   }
@@ -306,36 +332,17 @@ function docker-network-create-macvlan() {
   local parent=$1
   local network=$2
   local subnet=$3
-
   local host_gateway=$4
   local dockerdhcp_ip_range=$5
   local macvlan_mode=$6
 
-  [[ -z ${dockerdhcp_ip_range} ]] && {
-    dockerdhcp_ip_range=""
-  } || {
-    dockerdhcp_ip_range="--ip-range ${dockerdhcp_ip_range}"
-  }
+  # Build argv (no eval): only append the optional flags when they were given.
+  local -a cmd=(docker network create -d macvlan -o "parent=${parent}" --subnet="${subnet}" --gateway "${host_gateway}")
+  [[ -n ${dockerdhcp_ip_range} ]] && cmd+=(--ip-range "${dockerdhcp_ip_range}")
+  [[ -n ${macvlan_mode} ]] && cmd+=(-o "macvlan_mode=${macvlan_mode}")
+  cmd+=("${network}")
 
-  [[ -z ${macvlan_mode} ]] && {
-    macvlan_mode=""
-  } || {
-    macvlan_mode="-o macvlan_mode=${macvlan_mode}"
-  }
-
-  #	[[ -z ${start_ip_of_ip_range} ]] && {
-  #		start_ip_of_ip_range=""
-  #	} || {
-  #		start_ip_of_ip_range="--ip-range ${start_ip_of_ip_range}"
-  #	}
-  dockerruncmd=$(
-    cat <<__
-        docker network create -d macvlan -o parent=${parent} --subnet=${subnet} --gateway ${host_gateway} ${dockerdhcp_ip_range} ${macvlan_mode} ${network}
-__
-  )
-
-  echo "${dockerruncmd}"
-  eval "${dockerruncmd}" && return 0 || return 1
+  _run "${cmd[@]}"
 }
 
 function docker-commit-and-save() {
@@ -356,10 +363,10 @@ function docker-commit-and-save() {
   }
 
   echo "Info: Commit container to image  ${containername}:${tag}"
-  docker commit "${containername}" "${containername}:${tag}"
+  _run docker commit "${containername}" "${containername}:${tag}"
   echo "Info: Save image to ""${savedpath}""/""${containername}"".tar "
-  docker save -o "${savedpath}"/"${containername}".tar "${containername}:${tag}"
-  docker image rm "${containername}":"${tag}"
+  _run docker save -o "${savedpath}"/"${containername}".tar "${containername}:${tag}"
+  _run docker image rm "${containername}":"${tag}"
 }
 
 function docker-swarm-init() {
@@ -368,7 +375,7 @@ function docker-swarm-init() {
     return 0
   }
   MANAGER_IP=${1}
-  docker swarm init --advertise-addr "${MANAGER_IP}"
+  _run docker swarm init --advertise-addr "${MANAGER_IP}"
 }
 
 function docker-swarm-listNode() {
@@ -382,7 +389,7 @@ function docker-swarm-join() {
   }
   MANAGER_IP=${1}
   token=${2}
-  docker swarm join --token "${token}" "${MANAGER_IP}":2377
+  _run docker swarm join --token "${token}" "${MANAGER_IP}":2377
 }
 
 function docker-swarm-listService() {
@@ -395,7 +402,7 @@ function docker-swarm-inspectService() {
     return 0
   }
   service_name=${1}
-  service inspect --pretty "${service_name}"
+  docker service inspect --pretty "${service_name}"
 }
 
 function docker-swarm-scaleService() {
@@ -405,7 +412,7 @@ function docker-swarm-scaleService() {
   }
   service_name=${1}
   scale_number=${2}
-  docker service scale "${service_name}"="${scale_number}"
+  _run docker service scale "${service_name}"="${scale_number}"
 }
 
 function docker-swarm-removeService() {
@@ -414,5 +421,6 @@ function docker-swarm-removeService() {
     return 0
   }
   service_name=${1}
-  docker service rm "${service_name}"
+  _confirm "Remove swarm service ${service_name}?" || return 1
+  _run docker service rm "${service_name}"
 }
