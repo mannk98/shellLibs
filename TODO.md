@@ -10,10 +10,10 @@ this file is the quick backlog.
 
 ## Next — safety arc (continue `safetylib`)
 
-- [ ] **safetylib v2:** `_confirm` + `SHELLLIBS_ASSUME_YES` — prompt before destructive ops (skipped in dry-run / when ASSUME_YES set).
-- [ ] **`_need_root` / `_need_cmd`** preflight helpers — standardize the ad-hoc root/command checks scattered across functions.
+- [x] **safetylib v2:** `_confirm` + `SHELLLIBS_ASSUME_YES` — prompt before destructive ops (skipped in dry-run / when ASSUME_YES set).
+- [x] **`_need_root` / `_need_cmd`** preflight helpers — standardize the ad-hoc root/command checks scattered across functions.
 - [ ] **Convert the remaining destructive functions** to `_run` / `_append_line` / `_write_file` (network-utils, nvidia-utils, docker-utils, nginxgen-utils, …).
-- [ ] **`install.sh:30`** — wrap the legacy `rm -f "$(which …)"` apt-port cleanup in `_run` *(final-review follow-up)*.
+- [x] **`install.sh:30`** — wrap the legacy `rm -f "$(which …)"` apt-port cleanup in `_run` *(final-review follow-up)*.
 - [ ] **`_append_line /etc/sudoers`** — validate with `visudo -c`, or migrate to `/etc/sudoers.d/<user>` (see improvement-proposals §7).
 
 ## Ideas — new capability / UX (when the safety arc feels done)

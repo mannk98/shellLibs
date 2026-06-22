@@ -101,3 +101,8 @@ docker run --rm -v "$PWD":/src -w /src bats/bats:latest tests/
   [`bats-support`](https://github.com/bats-core/bats-support) give richer assertions
   (`assert_output --partial`, `assert_success`). They're kept out of this starter to stay
   zero-extra-dependency; add them as git submodules under `tests/` if you want them.
+- **`[[ ]]` assertions need `|| return 1`.** bats runs tests under `set -e`, but bash's
+  `set -e` does NOT fire on a standalone failing `[[ ... ]]` (a compound conditional) — only
+  on `[ ... ]` (a simple command). So a bare `[[ "$output" == *x* ]]` that isn't the test's
+  last line is a **soft** assertion (its failure is masked). Write content assertions as
+  `[[ ... ]] || return 1` so they actually fail the test. (`[ ... ]` status checks are fine as-is.)

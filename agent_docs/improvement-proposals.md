@@ -216,8 +216,13 @@ Pilots converted: `admin-swap-enable`, `admin-user-add-to-sudo`, `disk-mount-par
 `kvm-nat-port`, `install.sh` (rm -rf now guarded + previewable). Tests in
 `tests/safetylib.bats` + per-pilot dry-run suites. Design: `2026-06-20-safetylib-dryrun-design.md`.
 
-Open (next): `_confirm` + `SHELLLIBS_ASSUME_YES`; `_need_root` / `_need_cmd`; convert the
-remaining destructive functions; `admin-user-add-to-sudo` → `/etc/sudoers.d` (see §7).
+**v2 (2026-06-21):** `_confirm` + `SHELLLIBS_ASSUME_YES` and `_need_root` / `_need_cmd`
+(advisory in dry-run) added and wired into the 5 pilots; install.sh apt-port `rm` wrapped in
+`_run`; all bats `[[ ]]` assertions hardened with `|| return 1`. Design: `2026-06-21-safetylib-v2-design.md`.
+
+Open (next): convert the remaining destructive functions (network-utils, nvidia-utils,
+docker-utils, nginxgen-utils, …); `admin-user-add-to-sudo` → `/etc/sudoers.d` + `visudo -c`
+validation (see §7).
 
 ---
 

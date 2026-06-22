@@ -36,6 +36,8 @@ After editing a script, re-run `install.sh` (or re-copy the file to `/bin/script
   `_append_line <file> <line>` and `_write_file <file>` (idempotent, auto-backup),
   `_backup_file`. All honour `SHELLLIBS_DRYRUN`. New destructive code (rm, fstab/sudoers
   edits, iptables, …) MUST route through these instead of running the command directly.
+  Also `_confirm <prompt>` (y/N gate — `SHELLLIBS_ASSUME_YES=1` to skip, refuses with no TTY)
+  and `_need_root` / `_need_cmd` preflight (advisory under dry-run). Gate destructive ops with these.
 
 Most other files begin with `source "$(which logshell)"` and/or `source "$(which checksystem)"`. Keep that pattern when adding new files.
 

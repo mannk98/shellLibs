@@ -174,6 +174,8 @@ Under the hood, functions route destructive work through `_run` (run a command),
 should use these helpers. Converted so far: `admin-swap-enable`,
 `admin-user-add-to-sudo`, `disk-mount-partition`, `kvm-nat-port`, and `install.sh`.
 
+**Confirm + preflight.** Mutating functions also gate on `_confirm` (a y/N prompt) and the preflight helpers `_need_root` / `_need_cmd`. `_confirm` auto-proceeds under `SHELLLIBS_DRYRUN`, auto-yes when `SHELLLIBS_ASSUME_YES=1` is set (use that for automation, e.g. `SHELLLIBS_ASSUME_YES=1 admin-user-add-to-sudo alice`), prompts on a terminal, and **refuses** when there's no TTY — so an unattended script won't hang or run a destructive op by accident. `_need_root` / `_need_cmd` abort with a clear error in real mode but are advisory under dry-run so previews work on any host.
+
 ---
 
 ## Linting
