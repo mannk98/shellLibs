@@ -15,6 +15,7 @@ this file is the quick backlog.
 - [ ] **Convert the remaining destructive functions** to `_run` / `_append_line` / `_write_file` (network-utils, nvidia-utils, docker-utils, nginxgen-utils, …).
 - [x] **`install.sh:30`** — wrap the legacy `rm -f "$(which …)"` apt-port cleanup in `_run` *(final-review follow-up)*.
 - [ ] **`_append_line /etc/sudoers`** — validate with `visudo -c`, or migrate to `/etc/sudoers.d/<user>` (see improvement-proposals §7).
+- [ ] **Audit `exit` in sourced functions** — e.g. `admin-crontab-add`'s `-h` guard uses `exit 0`, which kills the user's interactive shell (sourced files must `return`). Sweep for others. *(final-review follow-up)*
 
 ## Ideas — new capability / UX (when the safety arc feels done)
 
