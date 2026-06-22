@@ -53,7 +53,7 @@ _log() {
 
   local timestamp
   timestamp=$(_get_timestamp)
-  local log_msg="${timestamp}[${level_str}] ${*}"
+  local log_msg="${timestamp} [${level_str}] ${*}"
 
   # Print to console
   printf "%b%s%b\n\n" "${color}" "${log_msg}" "${COLOR_RESET}"

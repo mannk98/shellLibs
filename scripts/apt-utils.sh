@@ -223,19 +223,10 @@ apt-file-search() {
   return 0
 }
 
-admin-apt-disable-autoupdate() {
-  local content="
-APT::Periodic::Update-Package-Lists \"0\";
-APT::Periodic::Unattended-Upgrade \"0\";"
-
-  if echo "${content}" >/etc/apt/apt.conf.d/20auto-upgrades; then
-    systemctl restart apt-daily.timer
-    echo "apt auto update is disabled"
-    return 0
-  else
-    return 1
-  fi
-}
+# Back-compat alias — this used to be a byte-for-byte copy of apt-disable-autoupdate
+# (and carries the wrong prefix for this file). Kept as a thin wrapper so anyone who
+# typed the old name still works; the canonical impl is apt-disable-autoupdate below.
+admin-apt-disable-autoupdate() { apt-disable-autoupdate "$@"; }
 
 apt-disable-autoupdate() {
   local content="

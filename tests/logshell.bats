@@ -126,3 +126,10 @@ setup() {
   [[ "$output" == *"2026-06-20 13:14:15,016"* ]] || return 1
   [[ "$output" != *"3N"* ]] || return 1
 }
+
+@test "log line has a space between the timestamp and the [level] tag" {
+  # The line used to read '<ts>[info] msg' with no space before the tag.
+  run log-info "spaced"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *" [info]"* ]] || return 1
+}

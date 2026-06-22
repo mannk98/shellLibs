@@ -56,8 +56,7 @@ function git-push-create-merge() {
     return 0
   }
   mergeMessage=${1}
-  nameOfMergeBranch=${2}
-  ${nameOfMergeBranch:=mannk_temp_branch}
+  nameOfMergeBranch=${2:-mannk_temp_branch}
   git checkout -b "${nameOfMergeBranch}"
   git add .
   git commit -m "${mergeMessage}"
