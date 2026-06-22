@@ -4,18 +4,23 @@ command -v log-run   >/dev/null 2>&1 || source "$(command -v logshell    2>/dev/
 command -v checkOsID >/dev/null 2>&1 || source "$(command -v checksystem 2>/dev/null || echo "$(dirname "${BASH_SOURCE[0]}")/checksystem")"
 command -v _run      >/dev/null 2>&1 || source "$(command -v safetylib   2>/dev/null || echo "$(dirname "${BASH_SOURCE[0]}")/safetylib")"
 
-function admin-timezone-set-GMT0() {
-  sudo timedatectl set-timezone UTC
-  #date -s "$(wget -qSO- --max-redirect=0 google.com 2>&1 | grep Date: | cut -d' ' -f5-8)"
-  apt install -y tzdata
-  cp /etc/localtime /etc/localtime_backup && ln -sf "/usr/share/zoneinfo/Etc/GMT+0" /etc/localtime
+function admin-timezone-set() {
+  [[ $1 == "-h" || -z $1 || -z $2 ]] && {
+    echo "Usage: sudo ${FUNCNAME[0]} <tz-name> <zoneinfo-path>
+           Example: ${FUNCNAME[0]} Asia/Ho_Chi_Minh /usr/share/zoneinfo/Asia/Ho_Chi_Minh"
+    return 0
+  }
+  local tz=$1 zoneinfo=$2
+  _need_root || return 1
+  _run timedatectl set-timezone "${tz}"
+  _run apt install -y tzdata
+  _backup_file /etc/localtime
+  _run ln -sf "${zoneinfo}" /etc/localtime
 }
 
-function admin-timezone-set-GMT7() {
-  sudo timedatectl set-timezone Asia/Ho_Chi_Minh
-  apt install -y tzdata
-  cp /etc/localtime /etc/localtime_backup && ln -sf /usr/share/zoneinfo/Asia/Ho_Chi_Minh /etc/localtime
-}
+# Thin back-compat wrappers over the parametrized setter.
+function admin-timezone-set-GMT0() { admin-timezone-set UTC /usr/share/zoneinfo/Etc/GMT+0; }
+function admin-timezone-set-GMT7() { admin-timezone-set Asia/Ho_Chi_Minh /usr/share/zoneinfo/Asia/Ho_Chi_Minh; }
 
 function admin-user-add-to-sudo() {
   local username=${1}

@@ -64,3 +64,18 @@ setup() {
   admin-user-createnew alice
   [ -z "${username:-}" ] || return 1
 }
+
+# --- timezone dedupe: GMT0/GMT7 are thin wrappers over admin-timezone-set ----
+
+@test "admin-timezone-set (dry-run) previews timedatectl + the localtime symlink" {
+  SHELLLIBS_DRYRUN=1 run admin-timezone-set Asia/Ho_Chi_Minh /usr/share/zoneinfo/Asia/Ho_Chi_Minh
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"DRY-RUN would run: timedatectl set-timezone Asia/Ho_Chi_Minh"* ]] || return 1
+  [[ "$output" == *"ln -sf"* ]] || return 1
+}
+
+@test "admin-timezone-set-GMT7 delegates to the parametrized setter (dry-run)" {
+  SHELLLIBS_DRYRUN=1 run admin-timezone-set-GMT7
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"timedatectl set-timezone Asia/Ho_Chi_Minh"* ]] || return 1
+}

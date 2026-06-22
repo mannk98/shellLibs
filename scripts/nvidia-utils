@@ -58,6 +58,23 @@ function nvidia-unload-kmodule() {
   _run rmmod nvidia
 }
 
+# Shared: add the NVIDIA container-toolkit apt repo (gpg keyring + sources-list drop-in).
+# gpg --dearmor writes a *binary* keyring, so it can't go through _write_file (text-only)
+# — guard that step by hand so dry-run still previews it. curl + sed only transform text;
+# the file write (the real mutation) goes through _write_file off the pipe.
+_nvidia_add_toolkit_repo_deb() {
+  if [[ -n ${SHELLLIBS_DRYRUN:-} ]]; then
+    log-run "DRY-RUN would fetch + dearmor the NVIDIA gpg key -> /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg"
+  else
+    curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey |
+      gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+  fi
+
+  curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list |
+    sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' |
+    _write_file /etc/apt/sources.list.d/nvidia-container-toolkit.list
+}
+
 function nvidia-install-nvidiadockertoolkit() {
   [[ $1 == "-h" ]] && {
     echo "Usage: sudo ${FUNCNAME[0]}
@@ -70,21 +87,7 @@ function nvidia-install-nvidiadockertoolkit() {
   _need_cmd curl || return 1
 
   [[ $(checkOsID) == *debian* || $(checkOsID) == *ubuntu* ]] && {
-    # gpg --dearmor writes a *binary* keyring, so it can't go through _write_file
-    # (text-only); guard the pipeline by hand so dry-run still previews it.
-    if [[ -n ${SHELLLIBS_DRYRUN:-} ]]; then
-      log-run "DRY-RUN would fetch + dearmor the NVIDIA gpg key -> /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg"
-    else
-      curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey |
-        gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
-    fi
-
-    # curl + sed only transform text; the actual mutation is the file write, which
-    # _write_file gates (and previews) — fed straight off the pipe via stdin.
-    curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list |
-      sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' |
-      _write_file /etc/apt/sources.list.d/nvidia-container-toolkit.list
-
+    _nvidia_add_toolkit_repo_deb
     _run sed -i -e '/experimental/ s/^#//g' /etc/apt/sources.list.d/nvidia-container-toolkit.list
     _run apt-get update
     _run apt-get install -y nvidia-container-toolkit
@@ -168,16 +171,7 @@ function nvidia-container-toolkitl-install() {
   _need_root || return 1
   _need_cmd curl || return 1
 
-  if [[ -n ${SHELLLIBS_DRYRUN:-} ]]; then
-    log-run "DRY-RUN would fetch + dearmor the NVIDIA gpg key -> /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg"
-  else
-    curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey |
-      gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
-  fi
-
-  curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list |
-    sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' |
-    _write_file /etc/apt/sources.list.d/nvidia-container-toolkit.list
+  _nvidia_add_toolkit_repo_deb
 
   _run apt-get update
   apt-setup-localrepo-debubuntu gcc linux-headers-"$(uname -r)" nvidia-container-toolkit

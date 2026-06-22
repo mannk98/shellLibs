@@ -44,3 +44,23 @@ setup() {
   [ "$status" -eq 0 ]
   [[ "$output" == *"Usage:"* ]] || return 1
 }
+
+# Characterization (behavior must survive the _nvidia_add_toolkit_repo_deb dedupe):
+# both toolkit installers still write the same apt repo drop-in under dry-run. curl is
+# mocked so the .list fetch is deterministic and offline.
+@test "nvidia-install-nvidiadockertoolkit (dry-run, ubuntu) previews the repo write + ctk configure" {
+  checkOsID() { echo ubuntu; }
+  curl() { echo "deb https://nvidia.example/repo /"; }
+  SHELLLIBS_DRYRUN=1 run nvidia-install-nvidiadockertoolkit
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"/etc/apt/sources.list.d/nvidia-container-toolkit.list"* ]] || return 1
+  [[ "$output" == *"nvidia-ctk runtime configure"* ]] || return 1
+}
+
+@test "nvidia-container-toolkitl-install (dry-run) previews the same repo write" {
+  # No status assertion: this one ends by calling apt-setup-localrepo-debubuntu, which
+  # isn't dry-run-aware (a separate follow-up). We only pin the shared repo-write step.
+  curl() { echo "deb https://nvidia.example/repo /"; }
+  SHELLLIBS_DRYRUN=1 run nvidia-container-toolkitl-install
+  [[ "$output" == *"/etc/apt/sources.list.d/nvidia-container-toolkit.list"* ]] || return 1
+}
